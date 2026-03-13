@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">LUMINA — 个人博客</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&family=Syne:wght@400;700;800&family=Inter:wght@300;400;500&family=Great+Vibes&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080810;--bg2:#0d0d1a;--surface:#12121e;--surface2:#181828;
+  --border:rgba(255,255,255,0.055);--border2:rgba(255,255,255,0.11);
+  --text:#ddddf5;--muted:#6a6a96;--faint:#242438;
+  /* Core palette: indigo-violet + cyan + teal accent + warm amber touch */
+  --c1:#7c6bff;      /* indigo-violet primary */
+  --c2:#a78bfa;      /* soft lavender */
+  --c3:#c4b5fd;      /* light lavender */
+  --c4:#22d3ee;      /* bright cyan */
+  --c5:#2dd4bf;      /* teal */
+  --c-warm:#fbbf24;  /* warm amber — used sparingly */
+  --c-rose:#fb7185;  /* rose — subtle accent */
+  /* Aurora blobs */
+  --a1:#5b4fcf;      /* deep indigo */
+  --a2:#0e7490;      /* deep cyan */
+  --a3:#0d9488;      /* teal */
+  --a4:#b45309;      /* amber-brown — warm whisper */
+  --a5:#7e22ce;      /* deep purple */
+  --body-font:'DM Mono',monospace;--display-font:'Cormorant Garamond',serif;
+  --brand-font:'Syne',sans-serif;--script-font:'Great Vibes',cursive;
+  --r:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--body-font);font-size:15px;line-height:1.7;min-height:100vh;overflow-x:hidden}
+
+/* SPOTLIGHT — soft, large, multi-layer */
+#spotlight{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(circle 520px at var(--sx,-999px) var(--sy,-999px),
+      rgba(124,107,255,0.055) 0%, rgba(34,211,238,0.03) 45%, transparent 72%),
+    radial-gradient(circle 280px at var(--sx,-999px) var(--sy,-999px),
+      rgba(124,107,255,0.04) 0%, transparent 100%);
+  transition: none;
+}
+#dot-grid{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:radial-gradient(circle,rgba(130,115,210,0.3) 1px,transparent 1px);
+  background-size:28px 28px;
+  mask-image:radial-gradient(circle 420px at var(--sx,-999px) var(--sy,-999px),
+    black 0%, rgba(0,0,0,0.6) 40%, transparent 100%);
+  -webkit-mask-image:radial-gradient(circle 420px at var(--sx,-999px) var(--sy,-999px),
+    black 0%, rgba(0,0,0,0.6) 40%, transparent 100%);
+}
+
+/* AURORA */
+.aurora-wrap{position:absolute;inset:0;overflow:hidden;z-index:0;pointer-events:none}
+.aurora-blob{position:absolute;border-radius:50%;filter:blur(100px);animation:auroraFloat linear infinite}
+.ab1{width:640px;height:640px;background:var(--a1);opacity:.5;top:-220px;left:-120px;animation-duration:22s}
+.ab2{width:520px;height:520px;background:var(--a2);opacity:.4;top:-100px;right:-180px;animation-duration:28s;animation-direction:reverse}
+.ab3{width:420px;height:420px;background:var(--a3);opacity:.35;bottom:-80px;left:30%;animation-duration:19s}
+.ab4{width:300px;height:300px;background:var(--a4);opacity:.25;bottom:80px;right:12%;animation-duration:24s;animation-direction:reverse}
+.ab5{width:360px;height:360px;background:var(--a5);opacity:.3;top:20%;left:60%;animation-duration:16s}
+.aurora-fade{position:absolute;bottom:0;left:0;right:0;height:70%;background:linear-gradient(to bottom,transparent,var(--bg));z-index:1}
+@keyframes auroraFloat{0%{transform:translate(0,0) scale(1)}25%{transform:translate(55px,-45px) scale(1.05)}50%{transform:translate(-35px,65px) scale(0.94)}75%{transform:translate(75px,25px) scale(1.07)}100%{transform:translate(0,0) scale(1)}}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:0 48px;height:60px;background:rgba(10,10,15,0.75);backdrop-filter:blur(16px) saturate(180%);border-bottom:0.5px solid var(--border)}
+.nav-logo{font-family:var(--script-font);font-size:28px;font-weight:400;letter-spacing:.01em;cursor:pointer;line-height:1;background:linear-gradient(120deg,var(--c3) 0%,var(--c4) 55%,var(--c-warm) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 16px rgba(124,107,255,0.55))}
+.nav-links{display:flex;gap:28px;align-items:center}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:13px;letter-spacing:.06em;text-transform:uppercase;transition:.2s;cursor:pointer}
+.nav-links a:hover{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-search{background:var(--surface);border:0.5px solid var(--border2);color:var(--text);padding:6px 14px;border-radius:20px;font-size:12px;font-family:var(--body-font);outline:none;width:160px;transition:.2s}
+.nav-search:focus{border-color:var(--c1);box-shadow:0 0 0 3px rgba(110,90,255,0.15)}
+.nav-admin{font-size:11px;color:var(--faint);padding:4px 10px;border:0.5px solid var(--faint);border-radius:16px;cursor:pointer;transition:.2s;letter-spacing:.06em}
+.nav-admin:hover{color:var(--muted);border-color:var(--border2)}
+
+/* HERO */
+#hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;padding-top:60px}
+.hero-content{position:relative;z-index:3;text-align:center;padding:0 24px;max-width:800px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--c5);margin-bottom:28px;padding:5px 16px;border:0.5px solid rgba(45,212,191,0.3);border-radius:20px;background:rgba(45,212,191,0.06);animation:fadeUp 1s .2s both}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--c-warm);box-shadow:0 0 8px var(--c-warm);animation:pulse 2s infinite}
+.hero-title{font-family:var(--display-font);font-size:clamp(50px,9vw,108px);font-weight:300;line-height:1.05;color:var(--text);animation:fadeUp 1s .4s both}
+.hero-gradient{background:linear-gradient(135deg,#fff 0%,var(--c3) 28%,var(--c4) 60%,var(--c-warm) 88%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 36px rgba(124,107,255,0.45));font-style:italic}
+.hero-sub{font-size:15px;color:var(--muted);max-width:500px;margin:20px auto 0;line-height:1.9;animation:fadeUp 1s .6s both}
+.hero-cta{display:flex;justify-content:center;gap:14px;margin-top:40px;flex-wrap:wrap;animation:fadeUp 1s .8s both}
+.btn-primary{background:linear-gradient(135deg,var(--c1),var(--c4));color:#fff;border:none;padding:12px 30px;border-radius:6px;font-family:var(--body-font);font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 32px rgba(110,90,255,0.4),0 0 80px rgba(110,90,255,0.15);transition:.25s;position:relative;overflow:hidden}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(110,90,255,0.6),0 0 100px rgba(110,90,255,0.25)}
+.btn-ghost{background:none;color:var(--muted);padding:12px 30px;border:0.5px solid var(--border2);border-radius:6px;font-family:var(--body-font);font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:.2s}
+.btn-ghost:hover{color:var(--text);background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.2)}
+.hero-code{position:relative;z-index:3;margin-top:52px;animation:fadeUp 1s 1s both;display:inline-block}
+.code-block{background:rgba(14,14,22,0.82);border:0.5px solid var(--border2);border-radius:10px;padding:20px 28px;font-family:var(--body-font);font-size:13px;line-height:1.8;text-align:left;backdrop-filter:blur(12px);box-shadow:0 0 60px rgba(110,90,255,0.1),inset 0 0.5px 0 rgba(255,255,255,0.08)}
+.code-line{white-space:pre}
+.code-k{color:#c084fc}.code-t{color:#38bdf8}.code-s{color:#34d399}.code-p{color:#94a3b8}.code-n{color:#e2e8f0}.code-cm{color:#475569}
+.code-cursor{display:inline-block;width:2px;height:14px;background:var(--c2);vertical-align:middle;animation:blink 1.1s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.hero-scroll{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px;animation:fadeUp 1s 1.4s both}
+.scroll-line{width:1px;height:44px;background:linear-gradient(to bottom,transparent,var(--c2));animation:scrollPulse 2s ease-in-out infinite}
+.scroll-text{font-size:10px;letter-spacing:.25em;color:var(--faint)}
+
+/* SECTIONS */
+.main-wrap{max-width:1280px;margin:0 auto;padding:80px 48px;position:relative;z-index:2}
+.s-title{font-family:var(--display-font);font-size:clamp(30px,4vw,48px);font-weight:300;color:var(--text);margin-bottom:44px;line-height:1.2}
+.s-title em{font-style:italic;color:var(--c3)}
+
+/* FILTER */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:40px}
+.filter-btn{background:none;border:0.5px solid var(--border);color:var(--muted);padding:7px 18px;border-radius:20px;font-family:var(--body-font);font-size:12px;letter-spacing:.06em;cursor:pointer;transition:.2s}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{background:rgba(124,107,255,0.14);border-color:rgba(124,107,255,0.5);color:var(--c3);box-shadow:0 0 14px rgba(124,107,255,0.15),0 0 0 0.5px rgba(34,211,238,0.1)}
+
+/* warm amber glow on section eyebrows */
+.s-eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--c5);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.s-eyebrow::before{content:'';display:block;width:24px;height:1px;background:linear-gradient(to right,var(--c5),var(--c-warm));opacity:.8}
+
+/* POSTS */
+.posts-layout{display:grid;grid-template-columns:1fr 310px;gap:52px;align-items:start}
+.posts-grid{display:grid;gap:22px}
+.post-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;position:relative;transition:border-color .3s,transform .3s,box-shadow .3s}
+.post-card::before{content:'';position:absolute;inset:0;border-radius:var(--r);z-index:0;background:radial-gradient(500px circle at var(--mx,50%) var(--my,50%),rgba(110,90,255,0.06),transparent 60%);opacity:0;transition:opacity .3s;pointer-events:none}
+.post-card:hover{border-color:rgba(110,90,255,0.3);transform:translateY(-3px);box-shadow:0 0 0 0.5px rgba(110,90,255,0.2),0 16px 48px rgba(0,0,0,0.4)}
+.post-card:hover::before{opacity:1}
+.post-card.featured{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}
+.post-thumb{position:relative;overflow:hidden;aspect-ratio:16/9;background:var(--surface);flex-shrink:0}
+.post-card.featured .post-thumb{aspect-ratio:auto;min-height:250px}
+.th-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.th1{background:linear-gradient(135deg,#0a0318,#150830)}
+.th2{background:linear-gradient(135deg,#031018,#061e30)}
+.th3{background:linear-gradient(135deg,#031510,#061e14)}
+.th4{background:linear-gradient(135deg,#180308,#2e0612)}
+.th5{background:linear-gradient(135deg,#140a00,#221200)}
+.th-glyph{font-family:var(--display-font);font-size:52px;font-style:italic;color:rgba(255,255,255,0.07);position:relative;z-index:1}
+.th-aurora{position:absolute;inset:0}
+/* Per-thumb unique aurora tints */
+.th1 .th-aurora{background:radial-gradient(ellipse at 25% 50%,rgba(124,107,255,0.3),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(34,211,238,0.18),transparent 50%)}
+.th2 .th-aurora{background:radial-gradient(ellipse at 30% 60%,rgba(34,211,238,0.28),transparent 60%),radial-gradient(ellipse at 75% 30%,rgba(124,107,255,0.15),transparent 50%)}
+.th3 .th-aurora{background:radial-gradient(ellipse at 40% 50%,rgba(45,212,191,0.28),transparent 60%),radial-gradient(ellipse at 80% 70%,rgba(34,211,238,0.12),transparent 50%)}
+.th4 .th-aurora{background:radial-gradient(ellipse at 30% 40%,rgba(251,113,133,0.22),transparent 60%),radial-gradient(ellipse at 75% 20%,rgba(124,107,255,0.2),transparent 50%)}
+.th5 .th-aurora{background:radial-gradient(ellipse at 35% 55%,rgba(251,191,36,0.18),transparent 60%),radial-gradient(ellipse at 70% 25%,rgba(45,212,191,0.15),transparent 50%)}
+.post-body{padding:22px 26px;position:relative;z-index:1}
+.post-card.featured .post-body{display:flex;flex-direction:column;justify-content:center}
+.post-meta{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.post-cat{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--c2);padding:3px 10px;border:0.5px solid rgba(167,139,250,0.3);border-radius:10px;background:rgba(110,90,255,0.08)}
+.post-date{font-size:12px;color:var(--muted)}
+.post-title{font-family:var(--display-font);font-size:19px;font-weight:400;line-height:1.35;color:var(--text);margin-bottom:9px}
+.post-card.featured .post-title{font-size:28px}
+.post-excerpt{font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:16px}
+.post-footer{display:flex;align-items:center;justify-content:space-between}
+.post-tags{display:flex;gap:6px;flex-wrap:wrap}
+.post-tag{font-size:10px;color:rgba(45,212,191,0.85);padding:2px 8px;border-radius:4px;background:rgba(45,212,191,0.08)}
+.read-more{font-size:12px;color:var(--c2);display:flex;align-items:center;gap:5px;letter-spacing:.06em;white-space:nowrap}
+.read-arrow{transition:transform .2s}
+.post-card:hover .read-arrow{transform:translateX(4px)}
+
+/* SIDEBAR */
+.sidebar{display:flex;flex-direction:column;gap:20px;position:sticky;top:76px}
+.sidebar-widget{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);padding:20px;position:relative;overflow:hidden}
+.sidebar-widget::before{content:'';position:absolute;top:-50px;right:-50px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(110,90,255,0.07),transparent 70%);pointer-events:none}
+.widget-title{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;padding-bottom:12px;border-bottom:0.5px solid var(--border)}
+.profile-center{text-align:center}
+.avatar{width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--c1),var(--c4));margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-family:var(--display-font);font-size:24px;color:#fff;box-shadow:0 0 0 4px rgba(110,90,255,0.15),0 0 28px rgba(110,90,255,0.3)}
+.profile-name{font-family:var(--brand-font);font-size:14px;font-weight:700;color:var(--text);margin-bottom:5px}
+.profile-bio{font-size:12px;color:var(--muted);line-height:1.7}
+.social-links{display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.social-link{font-size:11px;color:var(--muted);padding:4px 11px;border:0.5px solid var(--border);border-radius:14px;cursor:pointer;transition:.2s;text-decoration:none}
+.social-link:hover{color:var(--c3);border-color:rgba(110,90,255,0.4)}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.stat-box{background:var(--surface);border-radius:8px;padding:11px;text-align:center}
+.stat-num{font-family:var(--display-font);font-size:24px;background:linear-gradient(135deg,var(--c3),var(--c4));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.stat-label{font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:.05em}
+.cat-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border);cursor:pointer;transition:.2s;font-size:13px}
+.cat-item:last-child{border-bottom:none}
+.cat-item:hover{color:var(--c3);padding-left:4px}
+.cat-count{font-size:10px;color:var(--muted);background:var(--surface);padding:2px 7px;border-radius:8px}
+.input-field{background:var(--surface);border:0.5px solid var(--border);color:var(--text);padding:9px 12px;border-radius:6px;font-family:var(--body-font);font-size:12px;outline:none;transition:.2s;width:100%}
+.input-field:focus{border-color:var(--c1);box-shadow:0 0 0 3px rgba(110,90,255,0.12)}
+.subscribe-btn{width:100%;background:linear-gradient(135deg,var(--c1),var(--c4));color:#fff;border:none;padding:9px;border-radius:6px;font-family:var(--body-font);font-size:12px;letter-spacing:.1em;cursor:pointer;transition:.2s;box-shadow:0 0 18px rgba(110,90,255,0.2)}
+.subscribe-btn:hover{box-shadow:0 0 32px rgba(110,90,255,0.45);transform:translateY(-1px)}
+.tags-cloud{display:flex;flex-wrap:wrap;gap:7px}
+.tag-pill{font-size:11px;color:var(--muted);padding:4px 10px;border:0.5px solid var(--border);border-radius:13px;cursor:pointer;transition:.2s}
+.tag-pill:hover{color:var(--c3);border-color:rgba(110,90,255,0.4)}
+
+/* PAGINATION */
+.pagination{display:flex;gap:7px;margin-top:36px}
+.page-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:0.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;color:var(--muted);transition:.2s;background:none;font-family:var(--body-font)}
+.page-btn:hover{border-color:var(--border2);color:var(--text)}
+.page-btn.active{background:rgba(110,90,255,0.15);color:var(--c3);border-color:rgba(110,90,255,0.4);box-shadow:0 0 12px rgba(110,90,255,0.2)}
+
+/* ABOUT */
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
+.about-visual{position:relative;height:360px;display:flex;align-items:center;justify-content:center}
+.orbit-ring{position:absolute;border-radius:50%;border:0.5px solid;animation:orbit linear infinite}
+.or1{width:250px;height:250px;border-color:rgba(110,90,255,0.2);animation-duration:22s}
+.or2{width:170px;height:170px;border-color:rgba(56,189,248,0.2);animation-duration:14s;animation-direction:reverse}
+.or3{width:330px;height:330px;border-color:rgba(52,211,153,0.12);animation-duration:30s}
+.orbit-node{position:absolute;width:8px;height:8px;border-radius:50%;box-shadow:0 0 10px currentColor}
+.on1{background:var(--c1);color:var(--c1);top:0;left:50%;transform:translate(-50%,-50%)}
+.on2{background:var(--c4);color:var(--c4);bottom:0;left:50%;transform:translate(-50%,50%)}
+.on3{background:var(--c-warm);color:var(--c-warm);top:50%;right:0;transform:translate(50%,-50%)}
+.orbit-center{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,var(--c1),var(--c4));display:flex;align-items:center;justify-content:center;font-family:var(--display-font);font-size:36px;color:#fff;font-style:italic;z-index:1;box-shadow:0 0 0 8px rgba(110,90,255,0.1),0 0 60px rgba(110,90,255,0.5),0 0 120px rgba(110,90,255,0.2)}
+.about-skills{display:flex;flex-direction:column;gap:13px;margin-top:30px}
+.skill-bar{display:flex;flex-direction:column;gap:5px}
+.skill-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.skill-track{height:2px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.skill-fill{height:100%;border-radius:2px;background:linear-gradient(to right,var(--c1),var(--c4));box-shadow:0 0 8px rgba(110,90,255,0.4)}
+@keyframes orbit{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* FOOTER */
+footer{border-top:0.5px solid var(--border);padding:48px;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:48px;position:relative;z-index:2}
+.footer-logo{font-family:var(--script-font);font-size:28px;font-weight:400;letter-spacing:.01em;display:block;margin-bottom:8px;line-height:1.1;background:linear-gradient(120deg,var(--c3) 0%,var(--c4) 55%,var(--c-warm) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 10px rgba(124,107,255,0.35))}
+.footer-desc{font-size:12px;color:var(--muted);line-height:1.8}
+.footer-heading{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.footer-links{display:flex;flex-direction:column;gap:8px}
+.footer-links a{font-size:13px;color:var(--muted);text-decoration:none;cursor:pointer;transition:.2s}
+.footer-links a:hover{color:var(--c3)}
+.footer-bottom{border-top:0.5px solid var(--border);padding:16px 48px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--faint);position:relative;z-index:2}
+.footer-accent{color:var(--c2)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:300;background:rgba(4,4,10,0.9);backdrop-filter:blur(16px);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:48px 24px;opacity:0;pointer-events:none;transition:opacity .3s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-content{max-width:740px;width:100%;background:var(--bg2);border:0.5px solid var(--border2);border-radius:16px;overflow:hidden;transform:translateY(32px);transition:transform .4s cubic-bezier(.16,1,.3,1);box-shadow:0 0 0 0.5px rgba(110,90,255,0.2),0 32px 80px rgba(0,0,0,0.6)}
+.modal-overlay.open .modal-content{transform:translateY(0)}
+.modal-header{height:240px;position:relative;overflow:hidden}
+.modal-thumb-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--display-font);font-size:80px;color:rgba(255,255,255,0.05);font-style:italic;position:relative}
+.modal-thumb-aurora{position:absolute;inset:0;background:radial-gradient(ellipse at 30% 50%,rgba(110,90,255,0.2),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(56,189,248,0.15),transparent 50%)}
+.modal-close{position:absolute;top:14px;right:14px;z-index:2;width:32px;height:32px;border:0.5px solid var(--border2);border-radius:50%;background:rgba(10,10,15,0.7);color:var(--muted);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:.2s}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:34px 42px 46px}
+.modal-meta{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.modal-title{font-family:var(--display-font);font-size:32px;font-weight:400;line-height:1.2;color:var(--text);margin-bottom:22px}
+.modal-text{color:#9090b8;font-size:14px;line-height:1.95}
+.modal-text p{margin-bottom:17px}
+.modal-text h2{font-family:var(--display-font);font-size:22px;font-weight:400;color:var(--text);margin:30px 0 13px}
+.modal-text blockquote{border-left:2px solid var(--c1);padding:11px 18px;margin:20px 0;background:rgba(110,90,255,0.05);border-radius:0 8px 8px 0;font-style:italic;color:var(--muted)}
+.modal-text code{background:var(--surface);padding:2px 7px;border-radius:4px;font-size:13px;color:var(--c3)}
+.modal-text pre{background:var(--bg);border:0.5px solid var(--border);border-radius:8px;padding:16px 20px;margin:16px 0;overflow-x:auto}
+.modal-text pre code{background:none;padding:0}
+.modal-divider{height:0.5px;background:var(--border);margin:30px 0}
+.modal-comments h3{font-family:var(--display-font);font-size:20px;font-weight:400;color:var(--text);margin-bottom:20px}
+.comment{display:flex;gap:13px;margin-bottom:20px}
+.ca{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+.ca1{background:linear-gradient(135deg,#6e5aff,#3730a3);color:#c4b5fd}
+.ca2{background:linear-gradient(135deg,#0369a1,#0284c7);color:#7dd3fc}
+.comment-body{flex:1}
+.comment-name{font-size:13px;color:var(--text);margin-bottom:3px}
+.comment-date{font-size:11px;color:var(--muted);margin-bottom:6px}
+.comment-text{font-size:13px;color:var(--muted);line-height:1.7}
+.comment-form{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:20px}
+.comment-form .fw{grid-column:1/-1}
+.comment-form textarea{height:85px;resize:vertical}
+
+/* NEW ADMIN PANELS */
+.admin-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:22px}
+.admin-card-title{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;padding-bottom:12px;border-bottom:0.5px solid var(--border)}
+
+/* Toggle switch */
+.toggle-row{display:flex;align-items:center;cursor:pointer;user-select:none}
+.toggle-row input{display:none}
+.toggle-track{width:38px;height:21px;border-radius:11px;background:var(--surface2);border:0.5px solid var(--border2);position:relative;transition:.25s;flex-shrink:0}
+.toggle-row input:checked + .toggle-track{background:linear-gradient(135deg,var(--c1),var(--c4));border-color:transparent}
+.toggle-thumb{position:absolute;width:15px;height:15px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,0.3)}
+.toggle-row input:checked + .toggle-track .toggle-thumb{left:20px}
+
+/* Effects grid */
+.fx-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fx-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:18px;transition:.2s}
+.fx-card:hover{border-color:var(--border2)}
+.fx-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px}
+.fx-name{font-size:13px;color:var(--text);margin-bottom:3px}
+.fx-desc{font-size:11px;color:var(--muted);line-height:1.5}
+.fx-sub{display:flex;flex-direction:column;gap:6px}
+.fx-range{width:100%;accent-color:var(--c1);cursor:pointer;height:4px}
+
+/* Contact editor */
+.contact-row{display:grid;grid-template-columns:110px 1fr 1fr auto;gap:8px;align-items:center;margin-bottom:9px;padding:10px 12px;background:var(--surface);border-radius:8px;border:0.5px solid var(--border)}
+.contact-icon-preview{font-size:18px;text-align:center}
+
+/* Canvas layers for effects */
+#fx-canvas-particles,#fx-canvas-stars,#fx-canvas-trail,#fx-canvas-snow{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:1;transition:opacity .4s}
+
+/* TOAST */
+.toast{position:fixed;bottom:28px;right:28px;z-index:600;background:var(--surface2);border:0.5px solid rgba(110,90,255,0.3);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text);box-shadow:0 0 40px rgba(110,90,255,0.15);transform:translateY(80px);opacity:0;transition:.4s cubic-bezier(.16,1,.3,1);pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* ANIMATIONS */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scrollPulse{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 8px var(--c-warm)}50%{opacity:.5;box-shadow:0 0 4px var(--c-warm)}}
+
+/* ADMIN */
+#admin-overlay{position:fixed;inset:0;z-index:900;background:var(--bg);display:none;flex-direction:column}
+#admin-overlay.visible{display:flex}
+.admin-login{flex:1;display:flex;align-items:center;justify-content:center}
+.login-box{width:350px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:16px;padding:42px;text-align:center;box-shadow:0 0 60px rgba(110,90,255,0.1)}
+.login-logo{font-family:var(--script-font);font-size:34px;font-weight:400;letter-spacing:.01em;margin-bottom:5px;line-height:1.1;background:linear-gradient(120deg,var(--c3) 0%,var(--c4) 55%,var(--c-warm) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 12px rgba(124,107,255,0.4))}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:30px}
+.login-input{width:100%;background:var(--surface);border:0.5px solid var(--border);color:var(--text);padding:11px 13px;border-radius:7px;font-family:var(--body-font);font-size:13px;outline:none;margin-bottom:9px;transition:.2s}
+.login-input:focus{border-color:var(--c1);box-shadow:0 0 0 3px rgba(110,90,255,0.12)}
+.login-btn{width:100%;background:linear-gradient(135deg,var(--c1),var(--c4));color:#fff;border:none;padding:11px;border-radius:7px;font-family:var(--body-font);font-size:13px;letter-spacing:.1em;cursor:pointer;transition:.2s;box-shadow:0 0 20px rgba(110,90,255,0.25)}
+.login-btn:hover{box-shadow:0 0 36px rgba(110,90,255,0.5)}
+.login-error{color:#f87171;font-size:12px;margin-top:5px;display:none}
+.login-hint{font-size:11px;color:var(--faint);margin-top:13px}
+.login-back{font-size:12px;color:var(--muted);margin-top:16px;cursor:pointer;transition:.2s}
+.login-back:hover{color:var(--text)}
+.admin-layout{display:none;flex:1;overflow:hidden}
+.admin-layout.visible{display:flex}
+.admin-sidebar{width:220px;background:var(--bg2);border-right:0.5px solid var(--border);display:flex;flex-direction:column}
+.admin-brand{padding:20px;border-bottom:0.5px solid var(--border)}
+.admin-brand-name{font-family:var(--script-font);font-size:22px;font-weight:400;letter-spacing:.01em;line-height:1.1;background:linear-gradient(120deg,var(--c3) 0%,var(--c4) 55%,var(--c-warm) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.admin-brand-sub{font-size:11px;color:var(--faint);margin-top:2px}
+.admin-nav{padding:10px 0;flex:1}
+.a-nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:13px;color:var(--muted);cursor:pointer;transition:.15s;border-left:2px solid transparent}
+.a-nav-item:hover{color:var(--text);background:rgba(255,255,255,0.02)}
+.a-nav-item.active{color:var(--c3);border-left-color:var(--c1);background:rgba(110,90,255,0.07)}
+.a-nav-icon{font-size:14px;width:16px;text-align:center}
+.a-nav-div{height:0.5px;background:var(--border);margin:6px 20px}
+.admin-exit{padding:13px 20px;border-top:0.5px solid var(--border)}
+.admin-exit-btn{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;transition:.2s}
+.admin-exit-btn:hover{color:var(--text)}
+.admin-main{flex:1;overflow-y:auto;padding:32px}
+.admin-panel{display:none}
+.admin-panel.active{display:block}
+.a-panel-title{font-family:var(--display-font);font-size:28px;font-weight:300;color:var(--text);margin-bottom:5px}
+.a-panel-sub{font-size:13px;color:var(--muted);margin-bottom:28px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.stat-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;right:0;width:80px;height:80px;background:radial-gradient(circle at top right,rgba(110,90,255,0.08),transparent 70%)}
+.stat-card-num{font-family:var(--display-font);font-size:36px;font-weight:300;line-height:1;background:linear-gradient(135deg,var(--c3),var(--c4));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:5px}
+.stat-card-label{font-size:12px;color:var(--muted)}
+.stat-card-delta{font-size:11px;color:var(--c5);margin-top:3px}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+.chart-box{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:20px}
+.chart-title{font-size:12px;color:var(--muted);letter-spacing:.07em;margin-bottom:16px}
+.bar-chart{display:flex;align-items:flex-end;gap:7px;height:90px}
+.bar{flex:1;border-radius:3px 3px 0 0;cursor:default;transition:.2s;position:relative;background:linear-gradient(to top,rgba(110,90,255,0.4),rgba(56,189,248,0.2))}
+.bar:hover{filter:brightness(1.3)}
+.bar-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--faint);white-space:nowrap}
+.pie-chart{display:flex;align-items:center;gap:18px}
+.pie-visual{width:78px;height:78px;border-radius:50%;flex-shrink:0}
+.pie-legend{display:flex;flex-direction:column;gap:7px}
+.pie-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.pie-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.activity-box{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:20px}
+.activity-title{font-size:12px;color:var(--muted);letter-spacing:.07em;margin-bottom:16px}
+.activity-item{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:0.5px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:6px;height:6px;border-radius:50%;background:var(--c1);flex-shrink:0;box-shadow:0 0 6px rgba(110,90,255,0.6)}
+.activity-text{font-size:13px;color:var(--text);flex:1}
+.activity-time{font-size:11px;color:var(--faint)}
+.panel-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.a-btn{background:linear-gradient(135deg,var(--c1),var(--c4));color:#fff;border:none;padding:8px 16px;border-radius:6px;font-family:var(--body-font);font-size:12px;letter-spacing:.07em;cursor:pointer;transition:.2s;box-shadow:0 0 14px rgba(110,90,255,0.2)}
+.a-btn:hover{box-shadow:0 0 26px rgba(110,90,255,0.45);transform:translateY(-1px)}
+.a-btn.ghost{background:none;border:0.5px solid var(--border2);color:var(--muted);box-shadow:none}
+.a-btn.ghost:hover{color:var(--text);box-shadow:none;transform:none}
+.a-btn.danger{background:none;border:0.5px solid rgba(248,113,113,0.3);color:#f87171;box-shadow:none}
+.a-btn.danger:hover{background:rgba(248,113,113,0.08);box-shadow:none;transform:none}
+.articles-table{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.t-head{display:grid;grid-template-columns:1fr 90px 100px 120px;gap:12px;padding:11px 16px;background:var(--surface);font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;border-bottom:0.5px solid var(--border)}
+.t-row{display:grid;grid-template-columns:1fr 90px 100px 120px;gap:12px;padding:11px 16px;border-bottom:0.5px solid var(--border);align-items:center;transition:.15s}
+.t-row:last-child{border-bottom:none}
+.t-row:hover{background:rgba(255,255,255,0.02)}
+.t-title{font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-cat{font-size:10px;color:var(--c2);padding:2px 8px;border:0.5px solid rgba(167,139,250,0.25);border-radius:7px;text-align:center}
+.t-date{font-size:12px;color:var(--muted)}
+.t-actions{display:flex;gap:6px}
+.article-form{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:26px;margin-bottom:18px;display:none}
+.article-form.visible{display:block}
+.form-title{font-family:var(--display-font);font-size:20px;font-weight:400;color:var(--text);margin-bottom:20px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.form-input{background:var(--surface);border:0.5px solid var(--border);color:var(--text);padding:8px 11px;border-radius:6px;font-family:var(--body-font);font-size:13px;outline:none;transition:.2s;width:100%}
+.form-input:focus{border-color:var(--c1);box-shadow:0 0 0 3px rgba(110,90,255,0.1)}
+.form-select{background:var(--surface);border:0.5px solid var(--border);color:var(--text);padding:8px 11px;border-radius:6px;font-family:var(--body-font);font-size:13px;outline:none;width:100%;cursor:pointer}
+.form-textarea{height:180px;resize:vertical;line-height:1.7}
+.form-actions{display:flex;gap:9px;margin-top:18px}
+.profile-form-grid{display:grid;grid-template-columns:auto 1fr;gap:36px;align-items:start;background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:26px}
+.profile-av-area{display:flex;flex-direction:column;align-items:center;gap:10px}
+.profile-av-preview{width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,var(--c1),var(--c4));display:flex;align-items:center;justify-content:center;font-family:var(--display-font);font-size:30px;color:#fff;box-shadow:0 0 0 4px rgba(110,90,255,0.15),0 0 30px rgba(110,90,255,0.3)}
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.skills-editor{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:26px;margin-top:16px}
+.sk-row{display:grid;grid-template-columns:1fr 65px auto;gap:9px;align-items:center;margin-bottom:9px}
+.del-btn{background:none;border:0.5px solid rgba(248,113,113,0.25);color:#f87171;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
+.del-btn:hover{background:rgba(248,113,113,0.1)}
+.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.theme-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:20px}
+.theme-card-title{font-size:12px;color:var(--muted);letter-spacing:.07em;margin-bottom:16px}
+.preset-swatches{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px}
+.swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;transition:.15s;border:2px solid transparent}
+.swatch:hover{transform:scale(1.15)}
+.swatch.active{border-color:rgba(255,255,255,0.5)}
+.color-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.color-label{font-size:12px;color:var(--muted);flex:1}
+.color-input{width:42px;height:28px;border-radius:6px;border:0.5px solid var(--border);background:none;cursor:pointer;padding:2px}
+.font-opts{display:flex;flex-direction:column;gap:8px}
+.font-opt{display:flex;align-items:center;gap:11px;padding:8px 11px;border:0.5px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s}
+.font-opt:hover{border-color:var(--border2)}
+.font-opt.sel{border-color:rgba(110,90,255,0.5);background:rgba(110,90,255,0.07)}
+.font-opt-radio{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;position:relative;transition:.2s}
+.font-opt.sel .font-opt-radio{border-color:var(--c1)}
+.font-opt.sel .font-opt-radio::after{content:'';position:absolute;width:5px;height:5px;background:var(--c1);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%)}
+.font-opt-name{font-size:13px;color:var(--text)}
+.font-opt-preview{font-size:12px;color:var(--muted);margin-left:auto}
+.site-extra{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:26px;margin-top:16px}
+.pwd-form{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:26px;max-width:420px}
+
+@media(max-width:900px){
+  nav{padding:0 18px}.nav-links{display:none}.main-wrap{padding:56px 18px}
+  .posts-layout{grid-template-columns:1fr}.post-card.featured{grid-template-columns:1fr}
+  .sidebar{position:static}.about-grid{grid-template-columns:1fr}.about-visual{height:240px}
+  footer{grid-template-columns:1fr;padding:28px 18px}.footer-bottom{flex-direction:column;gap:5px;padding:12px 18px}
+  .modal-body{padding:22px 18px 32px}.comment-form{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:1fr 1fr}.chart-row{grid-template-columns:1fr}
+  .admin-sidebar{width:180px}.theme-grid{grid-template-columns:1fr}.profile-form-grid{grid-template-columns:1fr}
+  .hero-code{display:none}
+}
+</style>
+</head>
+<body>
+<div id="dot-grid"></div>
+<div id="spotlight"></div>
+<canvas id="fx-canvas-particles" style="display:none"></canvas>
+<canvas id="fx-canvas-stars" style="display:none"></canvas>
+<canvas id="fx-canvas-trail" style="display:none"></canvas>
+<canvas id="fx-canvas-snow" style="display:none"></canvas>
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════
+     ADMIN
+══════════════════════════════ -->
+<div id="admin-overlay">
+  <div class="admin-login" id="adminLogin">
+    <div class="login-box">
+      <div class="login-logo" id="adminLoginLogo">Ryoko</div>
+      <div class="login-sub">管理员登录</div>
+      <input class="login-input" type="password" id="adminPwd" placeholder="请输入密码" onkeydown="if(event.key==='Enter')doLogin()">
+      <div class="login-error" id="loginErr">密码错误，请重试</div>
+      <button class="login-btn" onclick="doLogin()">进入后台 →</button>
+      <div class="login-hint">默认密码：lumina2025</div>
+      <div class="login-back" onclick="exitAdmin()">← 返回博客</div>
+    </div>
+  </div>
+  <div class="admin-layout" id="adminApp">
+    <div class="admin-sidebar">
+      <div class="admin-brand"><div class="admin-brand-name" id="adminBrandEl">Ryoko</div><div class="admin-brand-sub">管理后台</div></div>
+      <nav class="admin-nav">
+        <div class="a-nav-item active" onclick="switchPanel('dashboard',this)"><span class="a-nav-icon">◈</span> 数据看板</div>
+        <div class="a-nav-item" onclick="switchPanel('articles',this)"><span class="a-nav-icon">◇</span> 文章管理</div>
+        <div class="a-nav-div"></div>
+        <div class="a-nav-item" onclick="switchPanel('hero',this)"><span class="a-nav-icon">⊹</span> 主页定制</div>
+        <div class="a-nav-item" onclick="switchPanel('effects',this)"><span class="a-nav-icon">✺</span> 特效管理</div>
+        <div class="a-nav-item" onclick="switchPanel('contact',this)"><span class="a-nav-icon">⊕</span> 联系方式</div>
+        <div class="a-nav-div"></div>
+        <div class="a-nav-item" onclick="switchPanel('profile',this)"><span class="a-nav-icon">◎</span> 博主信息</div>
+        <div class="a-nav-item" onclick="switchPanel('theme',this)"><span class="a-nav-icon">⬡</span> 主题外观</div>
+        <div class="a-nav-item" onclick="switchPanel('password',this)"><span class="a-nav-icon">✦</span> 修改密码</div>
+      </nav>
+      <div class="admin-exit"><div class="admin-exit-btn" onclick="exitAdmin()"><span>←</span> 返回博客</div></div>
+    </div>
+    <main class="admin-main">
+      <div class="admin-panel active" id="panel-dashboard">
+        <div class="a-panel-title">数据看板</div><div class="a-panel-sub">博客运营概览</div>
+        <div class="stats-row" id="dashStats"></div>
+        <div class="chart-row">
+          <div class="chart-box"><div class="chart-title">近7日访问量</div><div class="bar-chart" id="visitChart"></div></div>
+          <div class="chart-box"><div class="chart-title">分类分布</div><div class="pie-chart" id="catChart"></div></div>
+        </div>
+        <div class="activity-box"><div class="activity-title">最近动态</div><div id="activityList"></div></div>
+      </div>
+      <div class="admin-panel" id="panel-articles">
+        <div class="a-panel-title">文章管理</div><div class="a-panel-sub">新增、编辑或删除文章</div>
+        <div class="panel-toolbar"><span style="font-size:13px;color:var(--muted)" id="articleCount"></span><button class="a-btn" onclick="startNew()">+ 新建文章</button></div>
+        <div class="article-form" id="articleForm">
+          <div class="form-title" id="formTitleEl">新建文章</div>
+          <div class="form-grid">
+            <div class="form-group full"><label class="form-label">标题</label><input class="form-input" id="fTitle" placeholder="文章标题"></div>
+            <div class="form-group"><label class="form-label">分类</label><select class="form-select" id="fCat"><option value="tech">技术</option><option value="design">设计</option><option value="life">生活</option><option value="think">思考</option></select></div>
+            <div class="form-group"><label class="form-label">日期</label><input class="form-input" type="date" id="fDate"></div>
+            <div class="form-group full"><label class="form-label">摘要</label><input class="form-input" id="fExcerpt" placeholder="简短描述"></div>
+            <div class="form-group full"><label class="form-label">标签（英文逗号分隔）</label><input class="form-input" id="fTags" placeholder="#标签1,#标签2"></div>
+            <div class="form-group full"><label class="form-label">正文（支持 HTML）</label><textarea class="form-input form-textarea" id="fContent"></textarea></div>
+            <div class="form-group"><label class="form-label">封面配色</label><select class="form-select" id="fThumb"><option value="th1">深紫</option><option value="th2">深蓝</option><option value="th3">深绿</option><option value="th4">深玫</option><option value="th5">深金</option></select></div>
+            <div class="form-group"><label class="form-label">封面符号</label><input class="form-input" id="fEmoji" placeholder="✦"></div>
+            <div class="form-group" style="align-items:flex-start;padding-top:16px"><label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--muted)"><input type="checkbox" id="fFeatured" style="accent-color:var(--c1)"> 设为精选</label></div>
+          </div>
+          <div class="form-actions"><button class="a-btn" onclick="saveArticle()">保存</button><button class="a-btn ghost" onclick="cancelForm()">取消</button></div>
+        </div>
+        <div class="articles-table"><div class="t-head"><span>标题</span><span>分类</span><span>日期</span><span>操作</span></div><div id="articlesBody"></div></div>
+      </div>
+      <div class="admin-panel" id="panel-profile">
+        <div class="a-panel-title">博主信息</div><div class="a-panel-sub">修改个人资料与博客配置</div>
+        <div class="profile-form-grid">
+          <div class="profile-av-area"><div class="profile-av-preview" id="previewAv">L</div><div style="font-size:11px;color:var(--muted)">头像字母</div></div>
+          <div class="pg">
+            <div class="form-group"><label class="form-label">头像字母</label><input class="form-input" id="pAv" maxlength="2" oninput="document.getElementById('previewAv').textContent=this.value||'L'"></div>
+            <div class="form-group"><label class="form-label">显示名称</label><input class="form-input" id="pName"></div>
+            <div class="form-group" style="grid-column:1/-1"><label class="form-label">个人简介</label><textarea class="form-input" id="pBio" style="height:65px;resize:vertical"></textarea></div>
+            <div class="form-group"><label class="form-label">博客名称</label><input class="form-input" id="pBlogName"></div>
+            <div class="form-group"><label class="form-label">博客副标题</label><input class="form-input" id="pBlogSub"></div>
+            <div class="form-group"><label class="form-label">Hero 主标题</label><input class="form-input" id="pHero1"></div>
+            <div class="form-group"><label class="form-label">Hero 渐变词</label><input class="form-input" id="pHero2"></div>
+            <div class="form-group" style="grid-column:1/-1"><label class="form-label">Hero 副标题</label><input class="form-input" id="pHeroSub"></div>
+            <div class="form-group"><label class="form-label">社交1 名称</label><input class="form-input" id="pS1L"></div>
+            <div class="form-group"><label class="form-label">社交1 URL</label><input class="form-input" id="pS1U"></div>
+            <div class="form-group"><label class="form-label">社交2 名称</label><input class="form-input" id="pS2L"></div>
+            <div class="form-group"><label class="form-label">社交2 URL</label><input class="form-input" id="pS2U"></div>
+            <div class="form-group" style="grid-column:1/-1;margin-top:5px"><button class="a-btn" onclick="saveProfile()">保存信息</button></div>
+          </div>
+        </div>
+        <div class="skills-editor">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span style="font-size:12px;color:var(--muted)">技能条</span><button class="a-btn ghost" onclick="addSkill()">+ 添加</button></div>
+          <div id="skillsEditorList"></div>
+          <button class="a-btn" style="margin-top:12px" onclick="saveSkills()">保存技能</button>
+        </div>
+      </div>
+      <div class="admin-panel" id="panel-theme">
+        <div class="a-panel-title">主题外观</div><div class="a-panel-sub">自定义颜色与字体</div>
+        <div class="theme-grid">
+          <div class="theme-card">
+            <div class="theme-card-title">预设配色</div>
+            <div class="preset-swatches" id="presetSwatches"></div>
+            <div class="color-row"><span class="color-label">主色调</span><input type="color" class="color-input" id="tC1" oninput="previewC('c1',this.value)"></div>
+            <div class="color-row"><span class="color-label">辅助色</span><input type="color" class="color-input" id="tC4" oninput="previewC('c4',this.value)"></div>
+            <button class="a-btn" style="width:100%;margin-top:7px" onclick="saveTheme()">应用主题</button>
+          </div>
+          <div class="theme-card">
+            <div class="theme-card-title">字体选择</div>
+            <div class="font-opts" id="fontOpts"></div>
+            <button class="a-btn" style="width:100%;margin-top:13px" onclick="saveFont()">应用字体</button>
+          </div>
+        </div>
+        <div class="site-extra">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px">其他设置</div>
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">页脚版权</label><input class="form-input" id="tFooterCopy"></div>
+            <div class="form-group"><label class="form-label">页脚副文字</label><input class="form-input" id="tFooterSub"></div>
+          </div>
+          <button class="a-btn" style="margin-top:13px" onclick="saveSiteSettings()">保存设置</button>
+        </div>
+      </div>
+      <!-- ═══ HERO CUSTOMIZATION ═══ -->
+      <div class="admin-panel" id="panel-hero">
+        <div class="a-panel-title">主页定制</div>
+        <div class="a-panel-sub">自定义 Hero 区域的所有文字、背景与按钮</div>
+        <div class="admin-card">
+          <div class="admin-card-title">✦ 标题与副标题</div>
+          <div class="form-grid">
+            <div class="form-group full"><label class="form-label">主标题前段文字</label><input class="form-input" id="hHero1" placeholder="如：探索"></div>
+            <div class="form-group full"><label class="form-label">主标题渐变高亮词（大字，斜体）</label><input class="form-input" id="hHero2" placeholder="如：无限可能"></div>
+            <div class="form-group full"><label class="form-label">副标题小字</label><input class="form-input" id="hHeroSub" placeholder="一行简短描述"></div>
+            <div class="form-group full"><label class="form-label">Badge 标签文字（导航下方小胶囊）</label><input class="form-input" id="hBadge" placeholder="如：个人博客 · 思想实验室"></div>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card-title">⬡ 按钮</div>
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">主按钮文字</label><input class="form-input" id="hBtn1" placeholder="开始阅读"></div>
+            <div class="form-group"><label class="form-label">次按钮文字</label><input class="form-input" id="hBtn2" placeholder="了解我"></div>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card-title">◎ 背景图片（可选）</div>
+          <div class="form-group full" style="margin-bottom:12px">
+            <label class="form-label">Hero 背景图片 URL（留空则使用极光效果）</label>
+            <input class="form-input" id="hBgImg" placeholder="https://example.com/image.jpg">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">背景图叠加透明度（0=全图，0.8=几乎不可见）</label>
+            <input class="form-input" id="hBgOpacity" type="range" min="0" max="1" step="0.05" value="0.6" style="padding:8px 0;accent-color:var(--c1)">
+            <span style="font-size:11px;color:var(--muted)" id="hBgOpacityVal">0.6</span>
+          </div>
+          <div id="hBgPreview" style="margin-top:12px;height:80px;border-radius:8px;border:0.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);overflow:hidden">暂无背景图</div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card-title">◇ 代码片段（Hero 右侧装饰）</div>
+          <div class="form-grid">
+            <div class="form-group full"><label class="form-label">是否显示代码装饰块</label>
+              <label class="toggle-row"><input type="checkbox" id="hShowCode" onchange=""> <span class="toggle-track"><span class="toggle-thumb"></span></span><span style="margin-left:10px;font-size:12px;color:var(--muted)">显示代码块</span></label>
+            </div>
+          </div>
+        </div>
+        <button class="a-btn" style="margin-top:20px" onclick="saveHero()">保存主页设置</button>
+      </div>
+
+      <!-- ═══ EFFECTS ═══ -->
+      <div class="admin-panel" id="panel-effects">
+        <div class="a-panel-title">特效管理</div>
+        <div class="a-panel-sub">开启或关闭页面视觉特效，实时生效</div>
+        <!-- Toggle cards -->
+        <div class="fx-grid">
+          <div class="fx-card">
+            <div class="fx-card-head">
+              <div>
+                <div class="fx-name">🔦 聚光灯</div>
+                <div class="fx-desc">鼠标跟随光晕 + 点阵网格，核心氛围效果</div>
+              </div>
+              <label class="toggle-row"><input type="checkbox" id="fxSpotlight" checked onchange="toggleFx('spotlight',this.checked)"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+            </div>
+            <div class="fx-sub">
+              <label class="form-label">光晕强度</label>
+              <input type="range" min="1" max="10" value="5" id="fxSpotlightInt" class="fx-range" oninput="setFxVal('spotlightInt',+this.value)">
+            </div>
+          </div>
+          <div class="fx-card">
+            <div class="fx-card-head">
+              <div>
+                <div class="fx-name">🌌 极光背景</div>
+                <div class="fx-desc">Hero 区域流动彩色光球</div>
+              </div>
+              <label class="toggle-row"><input type="checkbox" id="fxAurora" checked onchange="toggleFx('aurora',this.checked)"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+            </div>
+            <div class="fx-sub">
+              <label class="form-label">极光透明度</label>
+              <input type="range" min="1" max="10" value="5" id="fxAuroraInt" class="fx-range" oninput="setFxVal('auroraInt',+this.value)">
+            </div>
+          </div>
+          <div class="fx-card">
+            <div class="fx-card-head">
+              <div>
+                <div class="fx-name">✦ 浮动粒子</div>
+                <div class="fx-desc">全页轻柔漂浮的发光粒子</div>
+              </div>
+              <label class="toggle-row"><input type="checkbox" id="fxParticles" onchange="toggleFx('particles',this.checked)"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+            </div>
+            <div class="fx-sub">
+              <label class="form-label">粒子数量</label>
+              <input type="range" min="1" max="10" value="4" id="fxParticlesInt" class="fx-range" oninput="setFxVal('particlesInt',+this.value)">
+            </div>
+          </div>
+          <div class="fx-card">
+            <div class="fx-card-head">
+              <div>
+                <div class="fx-name">🌠 星尘背景</div>
+                <div class="fx-desc">细密闪烁星点，深空感</div>
+              </div>
+              <label class="toggle-row"><input type="checkbox" id="fxStars" onchange="toggleFx('stars',this.checked)"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+            </div>
+            <div class="fx-sub">
+              <label class="form-label">星点密度</label>
+              <input type="range" min="1" max="10" value="4" id="fxStarsInt" class="fx-range" oninput="setFxVal('starsInt',+this.value)">
+            </div>
+          </div>
+          <div class="fx-card">
+            <div class="fx-card-head">
+              <div>
+                <div class="fx-name">🌊 鼠标拖尾</div>
+                <div class="fx-desc">鼠标移动时留下发光轨迹</div>
+              </div>
+              <label class="toggle-row"><input type="checkbox" id="fxTrail" onchange="toggleFx('trail',this.checked)"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+            </div>
+            <div class="fx-sub">
+              <label class="form-label">拖尾长度</label>
+              <input type="range" min="1" max="10" value="5" id="fxTrailInt" class="fx-range" oninput="setFxVal('trailInt',+this.value)">
+            </div>
+          </div>
+          <div class="fx-card">
+            <div class="fx-card-head">
+              <div>
+                <div class="fx-name">❄️ 雪花 / 飘落</div>
+                <div class="fx-desc">轻柔飘落的粒子，季节感</div>
+              </div>
+              <label class="toggle-row"><input type="checkbox" id="fxSnow" onchange="toggleFx('snow',this.checked)"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+            </div>
+            <div class="fx-sub">
+              <label class="form-label">密度</label>
+              <input type="range" min="1" max="10" value="3" id="fxSnowInt" class="fx-range" oninput="setFxVal('snowInt',+this.value)">
+            </div>
+          </div>
+        </div>
+        <button class="a-btn" style="margin-top:20px" onclick="saveFx()">保存特效设置</button>
+      </div>
+
+      <!-- ═══ CONTACT ═══ -->
+      <div class="admin-panel" id="panel-contact">
+        <div class="a-panel-title">联系方式</div>
+        <div class="a-panel-sub">管理页脚与侧边栏的所有联系链接，支持无限增删</div>
+        <div class="admin-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <span style="font-size:12px;color:var(--muted)">点击「+」新增一条联系方式</span>
+            <button class="a-btn" onclick="addContact()">+ 新增</button>
+          </div>
+          <div id="contactEditorList"></div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card-title">◎ 关于页文字</div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">关于页第一段</label>
+            <textarea class="form-input" id="cAbout1" style="height:70px;resize:vertical"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">关于页第二段</label>
+            <textarea class="form-input" id="cAbout2" style="height:70px;resize:vertical"></textarea>
+          </div>
+        </div>
+        <button class="a-btn" style="margin-top:20px" onclick="saveContact()">保存联系方式</button>
+      </div>
+
+      <div class="admin-panel" id="panel-password">
+        <div class="a-panel-title">修改密码</div><div class="a-panel-sub">更新管理员登录密码</div>
+        <div class="pwd-form">
+          <div class="form-group" style="margin-bottom:11px"><label class="form-label">当前密码</label><input class="form-input" type="password" id="pwdCur"></div>
+          <div class="form-group" style="margin-bottom:11px"><label class="form-label">新密码（≥6位）</label><input class="form-input" type="password" id="pwdNew"></div>
+          <div class="form-group" style="margin-bottom:18px"><label class="form-label">确认新密码</label><input class="form-input" type="password" id="pwdCfm"></div>
+          <button class="a-btn" onclick="changePwd()">更新密码</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     BLOG
+══════════════════════════════ -->
+<nav>
+  <div class="nav-logo" id="blogLogo" onclick="logoClick()">Ryoko</div>
+  <div class="nav-links">
+    <a onclick="scrollTo2('posts')">文章</a>
+    <a onclick="scrollTo2('about-sec')">关于</a>
+    <a onclick="toast('📁 归档即将上线')">归档</a>
+    <a onclick="toast('📬 联系方式见页脚')">联系</a>
+  </div>
+  <div class="nav-right">
+    <input class="nav-search" placeholder="搜索文章..." id="searchInput" oninput="filterPosts(this.value)">
+    <span class="nav-admin" onclick="openAdmin()">管理</span>
+  </div>
+</nav>
+
+<section id="hero">
+  <div class="aurora-wrap">
+    <div class="aurora-blob ab1"></div>
+    <div class="aurora-blob ab2"></div>
+    <div class="aurora-blob ab3"></div>
+    <div class="aurora-blob ab4"></div>
+    <div class="aurora-blob ab5"></div>
+    <div class="aurora-fade"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge"><div class="badge-dot"></div><span id="heroEyebrow">个人博客 · 思想实验室</span></div>
+    <h1 class="hero-title"><span id="heroLine1">探索</span><br><span class="hero-gradient" id="heroLine2">无限可能</span></h1>
+    <p class="hero-sub" id="heroSub">记录技术、设计与生活的交汇处，在文字中寻找秩序与美感的平衡</p>
+    <div class="hero-cta">
+      <button class="btn-primary" onclick="scrollTo2('posts')">开始阅读</button>
+      <button class="btn-ghost" onclick="scrollTo2('about-sec')">了解我</button>
+    </div>
+  </div>
+  <div class="hero-code">
+    <div class="code-block">
+      <div class="code-line"><span class="code-k">import</span> <span class="code-n">ideas</span> <span class="code-k">from</span> <span class="code-s">'./thoughts'</span><span class="code-p">;</span></div>
+      <div class="code-line"><span class="code-k">const</span> <span class="code-n">blog</span> <span class="code-p">=</span> <span class="code-k">new</span> <span class="code-t">Lumina</span><span class="code-p">({</span></div>
+      <div class="code-line">  <span class="code-n">author</span><span class="code-p">:</span> <span class="code-s" id="codeAuthor">'Lumina Writer'</span><span class="code-p">,</span></div>
+      <div class="code-line">  <span class="code-n">theme</span><span class="code-p">:</span> <span class="code-s">'aurora-dark'</span><span class="code-p">,</span></div>
+      <div class="code-line">  <span class="code-n">mode</span><span class="code-p">:</span> <span class="code-s">'create &amp; inspire'</span></div>
+      <div class="code-line"><span class="code-p">});</span></div>
+      <div class="code-line"><span class="code-cm">// ✦ spotlight on</span> <span class="code-cursor"></span></div>
+    </div>
+  </div>
+  <div class="hero-scroll"><div class="scroll-line"></div><span class="scroll-text">SCROLL</span></div>
+</section>
+
+<div class="main-wrap" id="posts">
+  <div class="s-eyebrow">最新文章</div>
+  <div class="s-title">思想与<em>洞见</em></div>
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="setFilter('all',this)">全部</button>
+    <button class="filter-btn" onclick="setFilter('tech',this)">技术</button>
+    <button class="filter-btn" onclick="setFilter('design',this)">设计</button>
+    <button class="filter-btn" onclick="setFilter('life',this)">生活</button>
+    <button class="filter-btn" onclick="setFilter('think',this)">思考</button>
+  </div>
+  <div class="posts-layout">
+    <div>
+      <div class="posts-grid" id="postsGrid"></div>
+      <div class="pagination">
+        <button class="page-btn active">1</button>
+        <button class="page-btn" onclick="toast('📄 演示模式')">2</button>
+        <button class="page-btn" onclick="toast('📄 演示模式')">→</button>
+      </div>
+    </div>
+    <aside class="sidebar">
+      <div class="sidebar-widget">
+        <div class="widget-title">关于博主</div>
+        <div class="profile-center">
+          <div class="avatar" id="sideAv">L</div>
+          <div class="profile-name" id="sideNm">Lumina Writer</div>
+          <div class="profile-bio" id="sideBio">热爱技术与设计的独立创作者。</div>
+          <div class="social-links" id="socialLinks"></div>
+        </div>
+      </div>
+      <div class="sidebar-widget"><div class="widget-title">博客数据</div><div class="stats-grid" id="sideStats"></div></div>
+      <div class="sidebar-widget"><div class="widget-title">文章分类</div><div id="catList"></div></div>
+      <div class="sidebar-widget">
+        <div class="widget-title">热门标签</div>
+        <div class="tags-cloud">
+          <span class="tag-pill">#JavaScript</span><span class="tag-pill">#设计系统</span>
+          <span class="tag-pill">#AI</span><span class="tag-pill">#前端</span>
+          <span class="tag-pill">#效率</span><span class="tag-pill">#读书</span>
+        </div>
+      </div>
+      <div class="sidebar-widget">
+        <div class="widget-title">订阅更新</div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:10px">第一时间获取最新文章。</p>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <input class="input-field" type="email" id="emailInp" placeholder="your@email.com">
+          <button class="subscribe-btn" onclick="subscribe()">订阅 →</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="main-wrap" id="about-sec" style="padding-top:0">
+  <div style="padding:80px 0;border-top:0.5px solid var(--border)">
+    <div class="s-eyebrow">关于我</div>
+    <div class="s-title">创作者<em>宣言</em></div>
+    <div class="about-grid">
+      <div>
+        <div class="about-paras">
+          <p style="color:var(--muted);font-size:14px;line-height:2;margin-bottom:16px">我相信，最好的文章应该像诗歌一样——精准、有力、留有余味。在这个信息过载的时代，每一篇文章都值得你花时间阅读。</p>
+          <p style="color:var(--muted);font-size:14px;line-height:2;margin-bottom:30px">从前端架构到用户体验设计，从编程哲学到生活方式探索，这里是我与世界对话的地方。</p>
+        </div>
+        <div class="about-skills" id="aboutSkills"></div>
+      </div>
+      <div class="about-visual">
+        <div class="orbit-ring or3"><div class="orbit-node on3"></div></div>
+        <div class="orbit-ring or1"><div class="orbit-node on1"></div></div>
+        <div class="orbit-ring or2"><div class="orbit-node on2"></div></div>
+        <div class="orbit-center" id="aboutAv">L</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div><span class="footer-logo" id="footerLogo">Ryoko</span><p class="footer-desc" id="footerDesc">一个关于技术、设计与思考的个人博客。</p></div>
+  <div><div class="footer-heading">导航</div><div class="footer-links"><a onclick="scrollTo({top:0,behavior:'smooth'})">首页</a><a onclick="scrollTo2('posts')">文章</a><a onclick="scrollTo2('about-sec')">关于</a></div></div>
+  <div><div class="footer-heading">联系</div><div class="footer-links" id="footerSocial"></div></div>
+</footer>
+<div class="footer-bottom">
+  <span id="footerCopy">© 2025 <span class="footer-accent">Ryoko</span>. All rights reserved.</span>
+  <span id="footerSub">Designed with ✦ and intentionality</span>
+</div>
+
+<div class="modal-overlay" id="postModal" onclick="closeModalOut(event)">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-thumb-bg th1" id="modalThumb"><div class="modal-thumb-aurora"></div><span id="modalEmoji">✦</span></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-meta"><span class="post-cat" id="modalCat">技术</span><span class="post-date" id="modalDate"></span></div>
+      <h2 class="modal-title" id="modalTitle"></h2>
+      <div class="modal-text" id="modalBody"></div>
+      <div class="modal-divider"></div>
+      <div class="modal-comments">
+        <h3>评论区</h3>
+        <div class="comment"><div class="ca ca1">ZY</div><div class="comment-body"><div class="comment-name">张远</div><div class="comment-date">2025.01.16 · 14:32</div><div class="comment-text">非常深刻，让我重新思考了项目的设计方式。</div></div></div>
+        <div class="comment"><div class="ca ca2">LM</div><div class="comment-body"><div class="comment-name">李明</div><div class="comment-date">2025.01.17 · 09:18</div><div class="comment-text">按照文章里的思路解决了实际问题，感谢！</div></div></div>
+        <div style="margin-top:20px">
+          <div style="font-size:14px;color:var(--text);margin-bottom:12px">发表评论</div>
+          <div class="comment-form">
+            <input class="input-field" placeholder="您的姓名">
+            <input class="input-field" placeholder="邮箱（不公开）" type="email">
+            <textarea class="input-field fw" placeholder="写下您的想法..."></textarea>
+            <div class="fw"><button class="subscribe-btn" style="width:auto;padding:9px 22px" onclick="toast('💬 评论已提交')">发表评论 →</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* SPOTLIGHT */
+(function(){
+  const sp=document.getElementById('spotlight'),dg=document.getElementById('dot-grid');
+  let cx=-999,cy=-999,tx=-999,ty=-999;
+  document.addEventListener('mousemove',e=>{tx=e.clientX;ty=e.clientY;});
+  (function frame(){
+    // lerp 0.038 = very smooth, ghost-like trailing
+    cx+=(tx-cx)*0.038; cy+=(ty-cy)*0.038;
+    const vx=cx+'px', vy=cy+'px';
+    sp.style.setProperty('--sx',vx); sp.style.setProperty('--sy',vy);
+    dg.style.setProperty('--sx',vx); dg.style.setProperty('--sy',vy);
+    requestAnimationFrame(frame);
+  })();
+})();
+
+/* DATA */
+const K='lumina3_';
+function ld(k,d){try{const v=localStorage.getItem(K+k);return v?JSON.parse(v):d}catch{return d}}
+function sv(k,v){localStorage.setItem(K+k,JSON.stringify(v))}
+const CAT_MAP={tech:'技术',design:'设计',life:'生活',think:'思考'};
+const DEF_POSTS=[
+  {id:1,featured:true,cat:'tech',title:'现代前端架构的演进：从单体到微前端的思考',excerpt:'探讨前端架构的核心变迁，以及如何在复杂业务场景中做出合理的技术选型决策。',date:'2025.01.15',thumb:'th1',emoji:'⬡',tags:['#架构','#前端'],content:'<p>在过去的几年里，前端开发的复杂度正在以指数级的速度增长。当我们的应用从简单的营销页面演变为复杂的企业级 SaaS 产品时，传统的单体架构开始暴露出越来越多的局限性。</p><h2>为什么单体前端会成为瓶颈</h2><p>想象一下一个拥有50名前端开发者的团队，他们共同维护着一个超过30万行代码的 React 应用。每次发布都需要整个团队的协同，任何一个小改动都可能引发全局的影响。</p><blockquote>架构的本质是在约束中寻找自由。好的架构不是消灭约束，而是让约束变得可预测。</blockquote><h2>微前端的核心思想</h2><p>微前端的核心在于将前端应用按照业务边界进行拆分，每个子应用独立开发、独立部署，最终通过一个主框架进行集成。</p>'},
+  {id:2,cat:'design',title:'设计系统的哲学：秩序如何孕育创造力',excerpt:'好的设计系统不是枷锁，而是创意的骨架。当设计师从繁琐的基础决策中解放出来，真正的创作才能开始。',date:'2025.01.08',thumb:'th2',emoji:'◈',tags:['#设计系统','#UI'],content:'<p>设计系统这个词在业界已经被说烂了，但真正理解其本质的人并不多。</p><blockquote>设计规范的意义不在于限制，而在于让设计师专注于更高维度的创作决策。</blockquote>'},
+  {id:3,cat:'think',title:'注意力经济时代的深度工作方法论',excerpt:'当整个互联网都在争夺你的注意力，如何保持高质量的深度思考？这是我实践三年后的总结。',date:'2024.12.28',thumb:'th3',emoji:'◎',tags:['#效率','#哲学'],content:'<p>卡尔·纽波特在《深度工作》中提出：在注意力经济时代，能够进行深度工作的人将获得巨大的竞争优势。</p><blockquote>忙碌是一种懒惰——对充分思考的懒惰。</blockquote>'},
+  {id:4,cat:'life',title:'书单推荐：2024年改变我思维方式的六本书',excerpt:'今年读了几十本书，其中有六本重构了我看待世界的方式。不是所有书都值得读，但这几本值得。',date:'2024.12.20',thumb:'th4',emoji:'◇',tags:['#读书','#成长'],content:'<p>阅读习惯已经是我保持了七年的核心习惯之一。今年总计读完了38本书，有六本让我感到世界观发生了某种微妙的位移。</p>'},
+  {id:5,cat:'tech',title:'从零搭建 AI 辅助写作工作流',excerpt:'AI 工具改变了我的写作方式，但不是你想象的那样。它没有替代思考，而是让思考变得更精准。',date:'2024.12.10',thumb:'th5',emoji:'⬡',tags:['#AI','#写作'],content:'<p>在过去的一年里，我逐渐建立了一套以 AI 为辅助的写作工作流。</p><blockquote>AI 是一面镜子，照出你思想的模糊之处。你越清晰，它越有用。</blockquote>'},
+];
+const DEF_P={av:'R',name:'Ryoko',bio:'热爱技术与设计的独立创作者，在代码与文字间寻找灵感，探索数字世界的无限边界。',blogName:'Ryoko',blogSub:'一个关于技术、设计与思考的个人博客',hero1:'探索',hero2:'无限可能',heroSub:'记录技术、设计与生活的交汇处，在文字中寻找秩序与美感的平衡',s1l:'GitHub',s1u:'https://github.com',s2l:'Twitter',s2u:'https://twitter.com',footerCopy:'© 2025 Ryoko. All rights reserved.',footerSub:'Designed with ✦ and intentionality'};
+const DEF_SK=[{label:'前端开发',pct:92},{label:'UI/UX 设计',pct:84},{label:'内容创作',pct:88},{label:'系统架构',pct:76}];
+const DEF_TH={c1:'#6e5aff',c4:'#38bdf8',font:'dm-mono'};
+let POSTS=ld('posts',DEF_POSTS),PROFILE=ld('profile',DEF_P),SKILLS=ld('skills',DEF_SK),THEME=ld('theme',DEF_TH),ADMIN_PWD=ld('pwd','lumina2025');
+let curFilter='all',searchQ='',editId=null,selFont=null,lcCount=0,lcTimer=null;
+
+/* APPLY */
+function applyTheme(t){
+  t=t||THEME;
+  document.documentElement.style.setProperty('--c1',t.c1);
+  document.documentElement.style.setProperty('--c2',t.c1);
+  document.documentElement.style.setProperty('--c3',t.c1);
+  document.documentElement.style.setProperty('--c4',t.c4);
+  document.documentElement.style.setProperty('--a1',t.c1);
+  document.documentElement.style.setProperty('--a2',t.c4);
+  const fm={'dm-mono':"'DM Mono',monospace",'inter':"'Inter',sans-serif",'cormorant':"'Cormorant Garamond',serif"};
+  document.documentElement.style.setProperty('--body-font',fm[t.font]||fm['dm-mono']);
+}
+function applyProfile(p){
+  p=p||PROFILE;
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
+  ['blogLogo','footerLogo','adminLoginLogo','adminBrandEl'].forEach(id=>s(id,p.blogName||'Ryoko'));
+  document.getElementById('pageTitle').textContent=(p.blogName||'Ryoko')+' — 个人博客';
+  s('sideAv',p.av||'L');s('sideNm',p.name||'');s('sideBio',p.bio||'');s('aboutAv',p.av||'L');
+  const h1=document.getElementById('heroLine1');if(h1)h1.textContent=p.hero1||'探索';
+  const h2=document.getElementById('heroLine2');if(h2)h2.textContent=p.hero2||'无限可能';
+  const hs=document.getElementById('heroSub');if(hs)hs.textContent=p.heroSub||'';
+  s('footerCopy',p.footerCopy||'');s('footerSub',p.footerSub||'');
+  const fd=document.getElementById('footerDesc');if(fd)fd.textContent=p.blogSub||'';
+  const ca=document.getElementById('codeAuthor');if(ca)ca.textContent=`'${p.name||'Lumina Writer'}'`;
+  const links=[p.s1l&&{l:p.s1l,u:p.s1u},p.s2l&&{l:p.s2l,u:p.s2u}].filter(Boolean);
+  const sl=document.getElementById('socialLinks');if(sl)sl.innerHTML=links.map(x=>`<a class="social-link" href="${x.u||'#'}" target="_blank">${x.l}</a>`).join('');
+  const fs=document.getElementById('footerSocial');if(fs)fs.innerHTML=links.map(x=>`<a href="${x.u||'#'}" target="_blank">${x.l}</a>`).join('');
+}
+function applySkills(){
+  const el=document.getElementById('aboutSkills');if(!el)return;
+  el.innerHTML=SKILLS.map(s=>`<div class="skill-bar"><div class="skill-label"><span>${s.label}</span><span>${s.pct}%</span></div><div class="skill-track"><div class="skill-fill" style="width:${s.pct}%"></div></div></div>`).join('');
+}
+function applySide(){
+  const el=document.getElementById('sideStats');if(el)el.innerHTML=[{n:POSTS.length,l:'篇文章'},{n:'12k',l:'月阅读'},{n:'3.2k',l:'订阅者'},{n:'4yr',l:'写作时长'}].map(s=>`<div class="stat-box"><div class="stat-num">${s.n}</div><div class="stat-label">${s.l}</div></div>`).join('');
+  const cl=document.getElementById('catList');if(cl)cl.innerHTML=Object.keys(CAT_MAP).map(c=>`<div class="cat-item" onclick="setFilterQ('${c}')"><span>${CAT_MAP[c]}</span><span class="cat-count">${POSTS.filter(p=>p.cat===c).length}</span></div>`).join('');
+}
+
+/* BLOG */
+function renderPosts(){
+  const grid=document.getElementById('postsGrid');
+  const list=POSTS.filter(p=>(curFilter==='all'||p.cat===curFilter)&&(!searchQ||p.title.includes(searchQ)||p.excerpt.includes(searchQ)||(p.tags||[]).some(t=>t.includes(searchQ))));
+  if(!list.length){grid.innerHTML=`<div style="padding:48px;text-align:center;color:var(--muted)">未找到相关文章</div>`;return;}
+  grid.innerHTML=list.map((p,i)=>`
+    <div class="post-card ${p.featured&&i===0?'featured':''}" onclick="openPost(${p.id})">
+      <div class="post-thumb"><div class="th-bg ${p.thumb||'th1'}"><div class="th-aurora"></div><div class="th-glyph">${p.emoji||'✦'}</div></div></div>
+      <div class="post-body">
+        <div class="post-meta"><span class="post-cat">${CAT_MAP[p.cat]||p.cat}</span><span class="post-date">${p.date}</span></div>
+        <div class="post-title">${p.title}</div>
+        <div class="post-excerpt">${p.excerpt}</div>
+        <div class="post-footer"><div class="post-tags">${(p.tags||[]).map(t=>`<span class="post-tag">${t}</span>`).join('')}</div><span class="read-more">阅读全文 <span class="read-arrow">→</span></span></div>
+      </div>
+    </div>`).join('');
+  grid.querySelectorAll('.post-card').forEach(c=>c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();c.style.setProperty('--mx',(e.clientX-r.left)+'px');c.style.setProperty('--my',(e.clientY-r.top)+'px');}));
+}
+function setFilter(f,btn){curFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderPosts();}
+function setFilterQ(f){curFilter=f;renderPosts();scrollTo2('posts');}
+function filterPosts(q){searchQ=q.toLowerCase();renderPosts();}
+function openPost(id){
+  const p=POSTS.find(x=>x.id===id);if(!p)return;
+  document.getElementById('modalCat').textContent=CAT_MAP[p.cat]||p.cat;
+  document.getElementById('modalDate').textContent=p.date;
+  document.getElementById('modalTitle').textContent=p.title;
+  document.getElementById('modalBody').innerHTML=p.content||'<p>暂无内容。</p>';
+  document.getElementById('modalThumb').className=`modal-thumb-bg ${p.thumb||'th1'}`;
+  document.getElementById('modalEmoji').textContent=p.emoji||'✦';
+  document.getElementById('postModal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeModal(){document.getElementById('postModal').classList.remove('open');document.body.style.overflow='';}
+function closeModalOut(e){if(e.target.id==='postModal')closeModal();}
+
+/* ADMIN */
+function logoClick(){lcCount++;clearTimeout(lcTimer);if(lcCount>=5){lcCount=0;openAdmin();return;}lcTimer=setTimeout(()=>{lcCount=0;scrollTo({top:0,behavior:'smooth'});},600);}
+function openAdmin(){document.getElementById('admin-overlay').classList.add('visible');document.getElementById('adminLogin').style.display='flex';document.getElementById('adminApp').classList.remove('visible');document.getElementById('adminPwd').value='';document.getElementById('loginErr').style.display='none';}
+function exitAdmin(){document.getElementById('admin-overlay').classList.remove('visible');}
+function doLogin(){
+  if(document.getElementById('adminPwd').value===ADMIN_PWD){
+    document.getElementById('adminLogin').style.display='none';document.getElementById('adminApp').classList.add('visible');
+    renderDash();renderTable();loadPForm();loadTForm();renderSKEditor();loadHeroForm();loadFxForm();renderContactEditor();
+  } else {document.getElementById('loginErr').style.display='block';document.getElementById('adminPwd').value='';}
+}
+function switchPanel(n,el){document.querySelectorAll('.admin-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.a-nav-item').forEach(i=>i.classList.remove('active'));document.getElementById('panel-'+n).classList.add('active');if(el)el.classList.add('active');}
+function renderDash(){
+  document.getElementById('dashStats').innerHTML=[{n:POSTS.length,l:'文章总数',d:'+2本月'},{n:'12.4k',l:'月访问量',d:'+18%'},{n:'3.2k',l:'邮件订阅',d:'+45本周'},{n:Object.keys(CAT_MAP).filter(c=>POSTS.some(p=>p.cat===c)).length,l:'活跃分类',d:'保持稳定'}].map(s=>`<div class="stat-card"><div class="stat-card-num">${s.n}</div><div class="stat-card-label">${s.l}</div><div class="stat-card-delta">${s.d}</div></div>`).join('');
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],vals=[320,580,410,760,890,1020,670],mx=Math.max(...vals);
+  document.getElementById('visitChart').innerHTML=vals.map((v,i)=>`<div class="bar" style="height:${Math.round(v/mx*100)}%"><div class="bar-label">${days[i]}</div></div>`).join('');
+  const cc=Object.keys(CAT_MAP).map(c=>({n:CAT_MAP[c],cnt:POSTS.filter(p=>p.cat===c).length})).filter(c=>c.cnt>0);
+  const clrs=['#6e5aff','#38bdf8','#34d399','#f472b6'];const tot=cc.reduce((a,b)=>a+b.cnt,0)||1;let deg=0;
+  document.getElementById('catChart').innerHTML=`<div class="pie-visual" style="background:conic-gradient(${cc.map((c,i)=>{const pct=c.cnt/tot*360;const s=`${clrs[i%clrs.length]} ${Math.round(deg)}deg ${Math.round(deg+pct)}deg`;deg+=pct;return s;}).join(',')})"></div><div class="pie-legend">${cc.map((c,i)=>`<div class="pie-item"><div class="pie-dot" style="background:${clrs[i%clrs.length]}"></div>${c.n}(${c.cnt})</div>`).join('')}</div>`;
+  document.getElementById('activityList').innerHTML=[{t:'文章《'+POSTS[0].title.slice(0,14)+'…》发布',tm:'刚刚'},{t:'收到新评论',tm:'2h前'},{t:'新增订阅45人',tm:'今天'},{t:'文章更新',tm:'昨天'}].map(a=>`<div class="activity-item"><div class="activity-dot"></div><span class="activity-text">${a.t}</span><span class="activity-time">${a.tm}</span></div>`).join('');
+}
+function renderTable(){
+  document.getElementById('articleCount').textContent=`共 ${POSTS.length} 篇`;
+  document.getElementById('articlesBody').innerHTML=POSTS.map(p=>`<div class="t-row"><span class="t-title" title="${p.title}">${p.title}</span><span class="t-cat">${CAT_MAP[p.cat]||p.cat}</span><span class="t-date">${p.date}</span><div class="t-actions"><button class="a-btn ghost" style="padding:4px 9px;font-size:11px" onclick="editArt(${p.id})">编辑</button><button class="a-btn danger" style="padding:4px 9px;font-size:11px" onclick="delArt(${p.id})">删除</button></div></div>`).join('');
+}
+function startNew(){editId=null;document.getElementById('formTitleEl').textContent='新建文章';['fTitle','fExcerpt','fTags','fContent','fEmoji'].forEach(id=>document.getElementById(id).value='');document.getElementById('fCat').value='tech';document.getElementById('fThumb').value='th1';document.getElementById('fFeatured').checked=false;document.getElementById('fDate').value=new Date().toISOString().slice(0,10);document.getElementById('articleForm').classList.add('visible');document.getElementById('articleForm').scrollIntoView({behavior:'smooth'});}
+function editArt(id){const p=POSTS.find(x=>x.id===id);if(!p)return;editId=id;document.getElementById('formTitleEl').textContent='编辑文章';document.getElementById('fTitle').value=p.title;document.getElementById('fExcerpt').value=p.excerpt;document.getElementById('fTags').value=(p.tags||[]).join(',');document.getElementById('fContent').value=p.content||'';document.getElementById('fCat').value=p.cat;document.getElementById('fThumb').value=p.thumb||'th1';document.getElementById('fEmoji').value=p.emoji||'✦';document.getElementById('fFeatured').checked=!!p.featured;const d=p.date.replace(/\./g,'-');document.getElementById('fDate').value=d.match(/^\d{4}-\d{2}-\d{2}$/)?d:new Date().toISOString().slice(0,10);document.getElementById('articleForm').classList.add('visible');document.getElementById('articleForm').scrollIntoView({behavior:'smooth'});}
+function saveArticle(){const title=document.getElementById('fTitle').value.trim();if(!title){toast('⚠️ 请填写标题');return;}const cat=document.getElementById('fCat').value;const art={id:editId||Date.now(),cat,title,excerpt:document.getElementById('fExcerpt').value.trim(),date:document.getElementById('fDate').value.replace(/-/g,'.'),thumb:document.getElementById('fThumb').value,emoji:document.getElementById('fEmoji').value||'✦',tags:document.getElementById('fTags').value.split(',').map(t=>t.trim()).filter(Boolean),content:document.getElementById('fContent').value,featured:document.getElementById('fFeatured').checked};if(editId){const i=POSTS.findIndex(p=>p.id===editId);if(i>=0)POSTS[i]=art;}else{POSTS.unshift(art);}sv('posts',POSTS);renderTable();renderDash();renderPosts();applySide();cancelForm();toast(editId?'✅ 文章已更新':'✅ 文章已发布');editId=null;}
+function delArt(id){if(!confirm('确认删除？'))return;POSTS=POSTS.filter(p=>p.id!==id);sv('posts',POSTS);renderTable();renderDash();renderPosts();applySide();toast('🗑️ 已删除');}
+function cancelForm(){document.getElementById('articleForm').classList.remove('visible');editId=null;}
+function loadPForm(){const p=PROFILE;['pAv:av','pName:name','pBio:bio','pBlogName:blogName','pBlogSub:blogSub','pHero1:hero1','pHero2:hero2','pHeroSub:heroSub','pS1L:s1l','pS1U:s1u','pS2L:s2l','pS2U:s2u'].forEach(pair=>{const[id,key]=pair.split(':');const el=document.getElementById(id);if(el)el.value=p[key]||'';});document.getElementById('previewAv').textContent=p.av||'L';}
+function saveProfile(){PROFILE={...PROFILE,av:document.getElementById('pAv').value.trim()||'R',name:document.getElementById('pName').value.trim(),bio:document.getElementById('pBio').value.trim(),blogName:document.getElementById('pBlogName').value.trim()||'Ryoko',blogSub:document.getElementById('pBlogSub').value.trim(),hero1:document.getElementById('pHero1').value.trim(),hero2:document.getElementById('pHero2').value.trim(),heroSub:document.getElementById('pHeroSub').value.trim(),s1l:document.getElementById('pS1L').value.trim(),s1u:document.getElementById('pS1U').value.trim(),s2l:document.getElementById('pS2L').value.trim(),s2u:document.getElementById('pS2U').value.trim()};sv('profile',PROFILE);applyProfile(PROFILE);toast('✅ 信息已更新');}
+function renderSKEditor(){document.getElementById('skillsEditorList').innerHTML=SKILLS.map((s,i)=>`<div class="sk-row"><input class="form-input" value="${s.label}" onchange="SKILLS[${i}].label=this.value"><input class="form-input" type="number" min="0" max="100" value="${s.pct}" onchange="SKILLS[${i}].pct=+this.value" style="text-align:center"><button class="del-btn" onclick="SKILLS.splice(${i},1);renderSKEditor()">×</button></div>`).join('');}
+function addSkill(){SKILLS.push({label:'新技能',pct:80});renderSKEditor();}
+function saveSkills(){sv('skills',SKILLS);applySkills();toast('✅ 技能已更新');}
+const PRESETS=[{n:'紫蓝',c1:'#6e5aff',c4:'#38bdf8'},{n:'青绿',c1:'#059669',c4:'#38bdf8'},{n:'玫红',c1:'#db2777',c4:'#f97316'},{n:'橙金',c1:'#d97706',c4:'#65a30d'},{n:'冰蓝',c1:'#0284c7',c4:'#06b6d4'}];
+const FONTS=[{id:'dm-mono',n:'DM Mono',p:'等宽'},{id:'inter',n:'Inter',p:'无衬线'},{id:'cormorant',n:'Cormorant',p:'衬线'}];
+function loadTForm(){document.getElementById('tC1').value=THEME.c1||'#6e5aff';document.getElementById('tC4').value=THEME.c4||'#38bdf8';document.getElementById('tFooterCopy').value=PROFILE.footerCopy||'';document.getElementById('tFooterSub').value=PROFILE.footerSub||'';document.getElementById('presetSwatches').innerHTML=PRESETS.map(p=>`<div class="swatch ${THEME.c1===p.c1?'active':''}" style="background:linear-gradient(135deg,${p.c1},${p.c4})" title="${p.n}" onclick="applyPreset('${p.c1}','${p.c4}',this)"></div>`).join('');document.getElementById('fontOpts').innerHTML=FONTS.map(f=>`<div class="font-opt ${THEME.font===f.id?'sel':''}" onclick="selFontFn('${f.id}',this)"><div class="font-opt-radio"></div><span class="font-opt-name">${f.n}</span><span class="font-opt-preview">${f.p}</span></div>`).join('');}
+function applyPreset(c1,c4,el){document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));el.classList.add('active');document.getElementById('tC1').value=c1;document.getElementById('tC4').value=c4;previewC('c1',c1);previewC('c4',c4);}
+function previewC(k,v){document.documentElement.style.setProperty('--'+k,v);}
+function selFontFn(id,el){selFont=id;document.querySelectorAll('.font-opt').forEach(f=>f.classList.remove('sel'));el.classList.add('sel');}
+function saveTheme(){THEME.c1=document.getElementById('tC1').value;THEME.c4=document.getElementById('tC4').value;sv('theme',THEME);applyTheme(THEME);toast('✅ 主题已保存');}
+function saveFont(){if(selFont)THEME.font=selFont;sv('theme',THEME);applyTheme(THEME);toast('✅ 字体已应用');}
+function saveSiteSettings(){PROFILE.footerCopy=document.getElementById('tFooterCopy').value;PROFILE.footerSub=document.getElementById('tFooterSub').value;sv('profile',PROFILE);applyProfile(PROFILE);toast('✅ 设置已保存');}
+function changePwd(){const cur=document.getElementById('pwdCur').value,nw=document.getElementById('pwdNew').value,cf=document.getElementById('pwdCfm').value;if(cur!==ADMIN_PWD){toast('⚠️ 当前密码错误');return;}if(nw.length<6){toast('⚠️ 新密码至少6位');return;}if(nw!==cf){toast('⚠️ 两次密码不一致');return;}ADMIN_PWD=nw;sv('pwd',ADMIN_PWD);['pwdCur','pwdNew','pwdCfm'].forEach(id=>document.getElementById(id).value='');toast('✅ 密码已更新');}
+
+/* UTILS */
+function scrollTo2(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'});}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);}
+function subscribe(){const e=document.getElementById('emailInp').value;if(!e||!e.includes('@')){toast('⚠️ 请输入有效邮箱');return;}toast('✅ 订阅成功！');document.getElementById('emailInp').value='';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+/* INIT */
+applyTheme(THEME);applyProfile(PROFILE);applySkills();applySide();renderPosts();
+initFx();applyHero();applyContacts();
+
+/* ═══════════════════════════════════
+   HERO PANEL
+═══════════════════════════════════ */
+const DEF_HERO={hero1:'探索',hero2:'无限可能',heroSub:'记录技术、设计与生活的交汇处，在文字中寻找秩序与美感的平衡',badge:'个人博客 · 思想实验室',btn1:'开始阅读',btn2:'了解我',bgImg:'',bgOpacity:0.6,showCode:true};
+let HERO_CFG=ld('hero',DEF_HERO);
+function applyHero(cfg){
+  cfg=cfg||HERO_CFG;
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  const sp=(id,v)=>{const e=document.getElementById(id);if(e&&e.tagName!=='INPUT')e.textContent=v;};
+  s('heroLine1',cfg.hero1||'探索');
+  s('heroLine2',cfg.hero2||'无限可能');
+  const hs=document.getElementById('heroSub');if(hs)hs.textContent=cfg.heroSub||'';
+  const be=document.getElementById('heroEyebrow');if(be)be.textContent=cfg.badge||'';
+  const b1=document.querySelector('.btn-primary');if(b1)b1.textContent=cfg.btn1||'开始阅读';
+  const b2=document.querySelector('.btn-ghost');if(b2)b2.textContent=cfg.btn2||'了解我';
+  // background image
+  const hero=document.getElementById('hero');
+  if(cfg.bgImg){
+    hero.style.setProperty('--hero-bg',`url('${cfg.bgImg}')`);
+    const ov=document.getElementById('hero-bg-overlay')||document.createElement('div');
+    ov.id='hero-bg-overlay';ov.style.cssText=`position:absolute;inset:0;z-index:0;background-image:url('${cfg.bgImg}');background-size:cover;background-position:center;opacity:${1-cfg.bgOpacity};transition:.5s`;
+    hero.prepend(ov);
+  } else {
+    const ov=document.getElementById('hero-bg-overlay');if(ov)ov.remove();
+  }
+  const hc=document.querySelector('.hero-code');if(hc)hc.style.display=cfg.showCode?'inline-block':'none';
+}
+function loadHeroForm(){
+  const c=HERO_CFG;
+  ['hHero1:hero1','hHero2:hero2','hHeroSub:heroSub','hBadge:badge','hBtn1:btn1','hBtn2:btn2','hBgImg:bgImg'].forEach(pair=>{
+    const[id,key]=pair.split(':');const el=document.getElementById(id);if(el)el.value=c[key]||'';
+  });
+  const op=document.getElementById('hBgOpacity');if(op){op.value=c.bgOpacity||0.6;document.getElementById('hBgOpacityVal').textContent=c.bgOpacity||0.6;}
+  const sc=document.getElementById('hShowCode');if(sc)sc.checked=c.showCode!==false;
+  // preview
+  const bi=document.getElementById('hBgImg');if(bi)bi.addEventListener('input',previewHeroBg);
+  const bop=document.getElementById('hBgOpacity');if(bop){bop.addEventListener('input',e=>{document.getElementById('hBgOpacityVal').textContent=e.target.value;previewHeroBg();});}
+  previewHeroBg();
+}
+function previewHeroBg(){
+  const url=document.getElementById('hBgImg').value;
+  const pv=document.getElementById('hBgPreview');if(!pv)return;
+  if(url){pv.style.backgroundImage=`url('${url}')`;pv.style.backgroundSize='cover';pv.style.backgroundPosition='center';pv.textContent='';}
+  else{pv.style.backgroundImage='';pv.textContent='暂无背景图';}
+}
+function saveHero(){
+  HERO_CFG={
+    hero1:document.getElementById('hHero1').value.trim()||'探索',
+    hero2:document.getElementById('hHero2').value.trim()||'无限可能',
+    heroSub:document.getElementById('hHeroSub').value.trim(),
+    badge:document.getElementById('hBadge').value.trim(),
+    btn1:document.getElementById('hBtn1').value.trim()||'开始阅读',
+    btn2:document.getElementById('hBtn2').value.trim()||'了解我',
+    bgImg:document.getElementById('hBgImg').value.trim(),
+    bgOpacity:+document.getElementById('hBgOpacity').value,
+    showCode:document.getElementById('hShowCode').checked
+  };
+  sv('hero',HERO_CFG);applyHero(HERO_CFG);toast('✅ 主页设置已保存');
+}
+
+/* ═══════════════════════════════════
+   EFFECTS ENGINE
+═══════════════════════════════════ */
+const DEF_FX={spotlight:true,spotlightInt:5,aurora:true,auroraInt:5,particles:false,particlesInt:4,stars:false,starsInt:4,trail:false,trailInt:5,snow:false,snowInt:3};
+let FX=ld('fx',DEF_FX);
+const fxLoops={};
+
+function initFx(){
+  if(FX.particles)startParticles();
+  if(FX.stars)startStars();
+  if(FX.trail)startTrail();
+  if(FX.snow)startSnow();
+  applyFxToggles();
+}
+function applyFxToggles(){
+  // spotlight
+  const sp=document.getElementById('spotlight'),dg=document.getElementById('dot-grid');
+  if(sp)sp.style.opacity=FX.spotlight?1:0;
+  if(dg)dg.style.opacity=FX.spotlight?1:0;
+  // aurora
+  const aw=document.querySelector('.aurora-wrap');if(aw)aw.style.opacity=FX.aurora?(FX.auroraInt/10)*1.4:0;
+}
+function toggleFx(key,val){
+  FX[key]=val;
+  applyFxToggles();
+  if(key==='particles'){val?startParticles():stopFx('particles');}
+  if(key==='stars'){val?startStars():stopFx('stars');}
+  if(key==='trail'){val?startTrail():stopFx('trail');}
+  if(key==='snow'){val?startSnow():stopFx('snow');}
+}
+function setFxVal(key,val){FX[key]=val;if(key.includes('Int'))applyFxToggles();}
+function stopFx(name){
+  const c=document.getElementById('fx-canvas-'+name);if(c)c.style.display='none';
+  if(fxLoops[name]){cancelAnimationFrame(fxLoops[name]);delete fxLoops[name];}
+}
+function saveFx(){
+  ['spotlight','aurora','particles','stars','trail','snow'].forEach(k=>{const el=document.getElementById('fx'+k.charAt(0).toUpperCase()+k.slice(1));if(el)FX[k]=el.checked;});
+  ['spotlightInt','auroraInt','particlesInt','starsInt','trailInt','snowInt'].forEach(k=>{const el=document.getElementById('fx'+k.charAt(0).toUpperCase()+k.slice(1));if(el)FX[k]=+el.value;});
+  sv('fx',FX);toast('✅ 特效设置已保存');
+}
+function loadFxForm(){
+  ['Spotlight','Aurora','Particles','Stars','Trail','Snow'].forEach(k=>{
+    const el=document.getElementById('fx'+k);if(el)el.checked=FX[k.toLowerCase()]||false;
+  });
+  ['SpotlightInt','AuroraInt','ParticlesInt','StarsInt','TrailInt','SnowInt'].forEach(k=>{
+    const el=document.getElementById('fx'+k);if(el)el.value=FX[k.charAt(0).toLowerCase()+k.slice(1)]||5;
+  });
+}
+
+/* -- PARTICLES ENGINE -- */
+function startParticles(){
+  const cv=document.getElementById('fx-canvas-particles');cv.style.display='block';
+  cv.width=innerWidth;cv.height=innerHeight;
+  window.addEventListener('resize',()=>{cv.width=innerWidth;cv.height=innerHeight;});
+  const ctx=cv.getContext('2d');
+  const count=()=>Math.round((FX.particlesInt||4)*12);
+  let pts=[];
+  const mk=()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*2+0.5,vx:(Math.random()-.5)*0.4,vy:(Math.random()-.5)*0.4,a:Math.random(),da:(Math.random()*.005+.002)*(Math.random()<.5?1:-1),c:['124,107,255','34,211,238','45,212,191','251,191,36'][Math.floor(Math.random()*4)]});
+  for(let i=0;i<count();i++)pts.push(mk());
+  function frame(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    pts.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;p.a+=p.da;if(p.a>1||p.a<0)p.da*=-1;
+      if(p.x<0)p.x=cv.width;if(p.x>cv.width)p.x=0;if(p.y<0)p.y=cv.height;if(p.y>cv.height)p.y=0;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${p.c},${p.a*0.7})`;
+      ctx.shadowBlur=6;ctx.shadowColor=`rgba(${p.c},0.4)`;
+      ctx.fill();
+    });
+    ctx.shadowBlur=0;
+    // reconnect particles close to each other
+    if(pts.length>0){for(let i=0;i<pts.length;i++){for(let j=i+1;j<pts.length;j++){const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);if(d<80){ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.strokeStyle=`rgba(124,107,255,${(1-d/80)*0.12})`;ctx.lineWidth=0.5;ctx.stroke();}}}}
+    fxLoops.particles=requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+/* -- STARS ENGINE -- */
+function startStars(){
+  const cv=document.getElementById('fx-canvas-stars');cv.style.display='block';
+  cv.width=innerWidth;cv.height=innerHeight;
+  const ctx=cv.getContext('2d');
+  const count=()=>Math.round((FX.starsInt||4)*60);
+  let stars=[];
+  for(let i=0;i<count();i++)stars.push({x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*.8+.2,a:Math.random(),da:Math.random()*.003+.001});
+  function frame(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    stars.forEach(s=>{s.a+=s.da;if(s.a>1||s.a<.05)s.da*=-1;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,210,255,${s.a*0.8})`;ctx.fill();});
+    fxLoops.stars=requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+/* -- TRAIL ENGINE -- */
+function startTrail(){
+  const cv=document.getElementById('fx-canvas-trail');cv.style.display='block';
+  cv.width=innerWidth;cv.height=innerHeight;
+  const ctx=cv.getContext('2d');
+  const maxLen=()=>Math.round((FX.trailInt||5)*16);
+  let pts=[];
+  document.addEventListener('mousemove',e=>pts.push({x:e.clientX,y:e.clientY,a:1}));
+  function frame(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    pts.forEach(p=>p.a-=0.032);
+    pts=pts.filter(p=>p.a>0);
+    if(pts.length>maxLen())pts=pts.slice(-maxLen());
+    for(let i=1;i<pts.length;i++){
+      const p=pts[i],pp=pts[i-1];
+      ctx.beginPath();ctx.moveTo(pp.x,pp.y);ctx.lineTo(p.x,p.y);
+      const a=p.a*0.55;ctx.strokeStyle=`rgba(124,107,255,${a})`;
+      ctx.lineWidth=2.5*(p.a);ctx.lineCap='round';
+      ctx.shadowBlur=8;ctx.shadowColor=`rgba(34,211,238,${a*0.6})`;
+      ctx.stroke();
+    }
+    ctx.shadowBlur=0;
+    fxLoops.trail=requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+/* -- SNOW ENGINE -- */
+function startSnow(){
+  const cv=document.getElementById('fx-canvas-snow');cv.style.display='block';
+  cv.width=innerWidth;cv.height=innerHeight;
+  const ctx=cv.getContext('2d');
+  const count=()=>Math.round((FX.snowInt||3)*25);
+  let flakes=[];
+  const mk=()=>({x:Math.random()*cv.width,y:Math.random()*-cv.height,r:Math.random()*2.5+0.8,vy:Math.random()*.6+.3,vx:(Math.random()-.5)*.4,a:Math.random()*.6+.3,swing:Math.random()*Math.PI*2,sSpeed:Math.random()*.015+.005});
+  for(let i=0;i<count();i++)flakes.push({...mk(),y:Math.random()*cv.height});
+  function frame(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    flakes.forEach(f=>{
+      f.y+=f.vy;f.swing+=f.sSpeed;f.x+=Math.sin(f.swing)*0.6+f.vx;
+      if(f.y>cv.height+10)Object.assign(f,mk());
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(200,220,255,${f.a})`;ctx.fill();
+    });
+    fxLoops.snow=requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+/* ═══════════════════════════════════
+   CONTACT PANEL
+═══════════════════════════════════ */
+const CONTACT_ICONS={'Email':'✉️','GitHub':'🐙','Twitter':'🐦','Instagram':'📷','Weibo':'🌐','WeChat':'💬','LinkedIn':'💼','YouTube':'▶️','Bilibili':'📺','其他':'🔗'};
+const DEF_CONTACTS=[{type:'GitHub',label:'GitHub',url:'https://github.com'},{type:'Twitter',label:'Twitter',url:'https://twitter.com'}];
+const DEF_ABOUT={p1:'我相信，最好的文章应该像诗歌一样——精准、有力、留有余味。在这个信息过载的时代，每一篇文章都值得你花时间阅读。',p2:'从前端架构到用户体验设计，从编程哲学到生活方式探索，这里是我与世界对话的地方。'};
+let CONTACTS=ld('contacts',DEF_CONTACTS);
+let ABOUT_TEXT=ld('about_text',DEF_ABOUT);
+
+function applyContacts(){
+  // sidebar social links
+  const sl=document.getElementById('socialLinks');
+  if(sl)sl.innerHTML=CONTACTS.map(c=>`<a class="social-link" href="${c.url||'#'}" target="_blank">${CONTACT_ICONS[c.type]||'🔗'} ${c.label}</a>`).join('');
+  // footer
+  const fs=document.getElementById('footerSocial');
+  if(fs)fs.innerHTML=CONTACTS.map(c=>`<a href="${c.url||'#'}" target="_blank">${CONTACT_ICONS[c.type]||'🔗'} ${c.label}</a>`).join('');
+  // about text
+  const paras=document.querySelectorAll('#about-sec .about-paras p');
+  if(paras[0])paras[0].textContent=ABOUT_TEXT.p1;
+  if(paras[1])paras[1].textContent=ABOUT_TEXT.p2;
+}
+function renderContactEditor(){
+  document.getElementById('contactEditorList').innerHTML=CONTACTS.map((c,i)=>`
+    <div class="contact-row">
+      <select class="form-select" style="padding:6px 8px;font-size:12px" onchange="CONTACTS[${i}].type=this.value">
+        ${Object.keys(CONTACT_ICONS).map(k=>`<option value="${k}" ${c.type===k?'selected':''}>${CONTACT_ICONS[k]} ${k}</option>`).join('')}
+      </select>
+      <input class="form-input" style="padding:6px 10px" value="${c.label||''}" placeholder="显示名称" onchange="CONTACTS[${i}].label=this.value">
+      <input class="form-input" style="padding:6px 10px" value="${c.url||''}" placeholder="https://..." onchange="CONTACTS[${i}].url=this.value">
+      <button class="del-btn" onclick="CONTACTS.splice(${i},1);renderContactEditor()">×</button>
+    </div>`).join('');
+  // about text
+  const a1=document.getElementById('cAbout1');if(a1)a1.value=ABOUT_TEXT.p1||'';
+  const a2=document.getElementById('cAbout2');if(a2)a2.value=ABOUT_TEXT.p2||'';
+}
+function addContact(){CONTACTS.push({type:'其他',label:'新链接',url:'https://'});renderContactEditor();}
+function saveContact(){
+  ABOUT_TEXT={p1:document.getElementById('cAbout1').value,p2:document.getElementById('cAbout2').value};
+  sv('contacts',CONTACTS);sv('about_text',ABOUT_TEXT);applyContacts();toast('✅ 联系方式已保存');
+}
+</script>
+</body>
+</html>
