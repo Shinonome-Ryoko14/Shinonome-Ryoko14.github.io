@@ -58,6 +58,12 @@
       "label": "Bilibili",
       "url": "https://space.bilibili.com/496883889?spm_id_from=333.1007.0.0",
       "icon": "📺"
+    },
+    {
+      "type": "WeChat",
+      "label": "WeChat",
+      "url": "ShinonomeRyoko14",
+      "icon": "💬"
     }
   ],
   "effects": {
