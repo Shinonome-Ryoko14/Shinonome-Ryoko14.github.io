@@ -14,6 +14,12 @@ const Store = (() => {
   return { get, set, del };
 })();
 
+/* SHA-256 via Web Crypto API (async) */
+const sha256 = async (str) => {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+};
+
 /* ── CONFIG ──
    FIX A: in-memory cfg = single source of truth.
    save() / saveSection() always write from cfg, never re-read stale localStorage.
@@ -40,8 +46,14 @@ const Config = (() => {
     return o;
   };
 
-  // Persist the FULL in-memory cfg to localStorage (atomic, no staleness)
-  const _persist = () => Store.set('cfg', cfg);
+  // Persist the FULL in-memory cfg to localStorage (session cache only)
+  // localStorage is device-local — must export config.json to GitHub for cross-device sync
+  const _persist = () => {
+    Store.set('cfg', cfg);
+    // Show unsync indicator in admin sidebar
+    const ind = document.getElementById('sync-indicator');
+    if (ind) ind.style.display = 'block';
+  };
 
   const load = async () => {
     let fileCfg = {};
@@ -79,19 +91,48 @@ const Config = (() => {
   };
 
   const all = () => cfg;
-  return { load, get, save, saveSection, all };
+
+  // Password is stored as SHA-256 hash in config.json (auth.passwordHash)
+  // NEVER in localStorage — must be committed to GitHub to be cross-device
+  const getPasswordHash = () => cfg?.auth?.passwordHash || '';
+  const setPasswordHash = (hash) => {
+    if (!cfg.auth) cfg.auth = {};
+    cfg.auth.passwordHash = hash;
+    // Note: does NOT call _persist() — password change requires downloading config.json
+  };
+
+  return { load, get, save, saveSection, all, getPasswordHash, setPasswordHash };
 })();
 
 /* ── POSTS ── */
 const Posts = (() => {
   let posts = [];
   const load = async () => {
+    // BUG 1 FIX: ALWAYS fetch posts.json as the base.
+    // localStorage only stores user edits (add/edit/delete via admin).
+    // This prevents stale/empty localStorage from hiding posts.json content.
+    let base = [];
+    try {
+      const r = await fetch('./posts.json?t='+Date.now());
+      if (r.ok) base = await r.json();
+    } catch {}
+
     const saved = Store.get('posts', null);
-    if (saved) { posts = saved; return posts; }
-    try { const r = await fetch('./posts.json?t='+Date.now()); if (r.ok) posts = await r.json(); } catch {}
+    if (saved && Array.isArray(saved) && saved.length > 0) {
+      // Merge: saved posts override base posts with same id; new saved posts appended
+      const baseIds  = new Set(base.map(p => p.id));
+      const savedIds = new Set(saved.map(p => p.id));
+      // saved has priority for matching ids; keep base posts not in saved
+      posts = [
+        ...saved,
+        ...base.filter(p => !savedIds.has(p.id))
+      ];
+    } else {
+      posts = base;
+    }
     return posts;
   };
-  const save   = () => Store.set('posts', posts);
+  const save = () => Store.set('posts', posts);
   const all    = () => posts;
   const byId   = id  => posts.find(p => p.id === id);
   const byCat  = cat => cat==='all' ? posts : posts.filter(p => p.cat===cat);
@@ -329,9 +370,30 @@ const Tools = (() => {
     const urls=[{loc:u+'/',p:'1.0',c:'weekly'},...Posts.all().map(p=>({loc:`${u}/#${p.id}`,lm:p.date,p:'0.8',c:'monthly'}))];
     return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u=>`  <url>\n    <loc>${u.loc}</loc>${u.lm?`\n    <lastmod>${u.lm}</lastmod>`:''}\n    <changefreq>${u.c}</changefreq>\n    <priority>${u.p}</priority>\n  </url>`).join('\n')}\n</urlset>`;
   };
+  // Download current in-memory config as config.json
+  // User must commit this file to GitHub for cross-device sync
+  const downloadConfigJson = () => {
+    const cfg = Config.all();
+    const out = JSON.stringify(cfg, null, 2);
+    dl(out, 'config.json', 'application/json');
+    // Hide unsync indicator after export
+    const ind = document.getElementById('sync-indicator');
+    if (ind) ind.style.display = 'none';
+    toast('📥 config.json 已下载 — 上传到 GitHub 仓库根目录即可全设备同步', 5000);
+  };
+
+  // Download current posts as posts.json
+  const downloadPostsJson = () => {
+    const out = JSON.stringify(Posts.all(), null, 2);
+    dl(out, 'posts.json', 'application/json');
+    toast('📥 posts.json 已下载 — 上传到 GitHub 仓库根目录即可全设备同步', 5000);
+  };
+
   return {
-    downloadRSS()     { dl(buildRSS(),    'rss.xml',    'application/rss+xml'); toast('✅ rss.xml 已下载'); },
-    downloadSitemap() { dl(buildSitemap(),'sitemap.xml','application/xml');     toast('✅ sitemap.xml 已下载'); },
+    downloadRSS()        { dl(buildRSS(),    'rss.xml',    'application/rss+xml'); toast('✅ rss.xml 已下载'); },
+    downloadSitemap()    { dl(buildSitemap(),'sitemap.xml','application/xml');     toast('✅ sitemap.xml 已下载'); },
+    downloadConfigJson,
+    downloadPostsJson,
   };
 })();
 
@@ -499,11 +561,8 @@ const Render = (() => {
 /* ── ADMIN ── */
 const Admin = (() => {
   const $ = id => document.getElementById(id);
-  const DEFAULT_PWD = 'ryoko2025';
-  const getPwd = () => Store.get('pwd', DEFAULT_PWD);
   let editId = null;
 
-  /* Login — FIX: explicit state control for absolute-positioned panels */
   const showLogin = () => {
     $('admin-login').style.display = 'flex';
     $('admin-app').style.display   = 'none';
@@ -513,8 +572,14 @@ const Admin = (() => {
     $('admin-app').style.display   = 'flex';
   };
 
-  const doLogin = () => {
-    if ($('pwd-input').value === getPwd()) {
+  // FIX: Password verified via SHA-256, hash stored in config.json (cross-device)
+  // NOT in localStorage (which is device-local only)
+  const doLogin = async () => {
+    const input = $('pwd-input').value;
+    if (!input) return;
+    const inputHash = await sha256(input);
+    const storedHash = Config.getPasswordHash();
+    if (inputHash === storedHash) {
       showApp();
       refresh();
     } else {
@@ -629,7 +694,7 @@ const Admin = (() => {
   };
   const saveHero = () => {
     const h={line1:$('h-line1').value.trim()||"Ryoko's",line2:$('h-line2').value.trim()||'Personal Blog',subtitle:$('h-sub').value.trim(),badge:$('h-badge').value.trim(),btn1:$('h-btn1').value.trim()||'开始阅读',btn2:$('h-btn2').value.trim()||'了解我',bgImage:$('h-bg').value.trim(),bgOpacity:+($('h-opacity').value),showCode:$('h-show-code').checked};
-    Config.saveSection('hero',h); Render.applyConfig(Config.all()); toast('✅ 主页设置已保存');
+    Config.saveSection('hero',h); Render.applyConfig(Config.all()); toast('✅ 主页设置已保存 — 前往「工具箱→导出 config.json」提交到 GitHub 全设备同步');
   };
 
   /* Effects */
@@ -679,11 +744,28 @@ const Admin = (() => {
   const setC=(i,k,v)=>{if(contacts[i])contacts[i][k]=v;};
   const rmC=i=>{contacts.splice(i,1);renderCE();};
   const addContact=()=>{contacts.push({type:'其他',label:'新链接',url:'https://',icon:'🔗'});renderCE();};
-  const saveContact=()=>{
-    contacts.forEach(c=>{c.icon=CI[c.type]||'🔗';});
-    Config.saveSection('social',contacts);
-    Config.saveSection('about',{p1:$('about-p1')?.value||'',p2:$('about-p2')?.value||''});
-    Render.applyConfig(Config.all()); Render.renderPosts(Posts.all()); toast('✅ 联系方式已保存');
+  const saveContact = () => {
+    contacts.forEach(c => { c.icon = CI[c.type] || '🔗'; });
+    Config.saveSection('social', contacts);
+
+    // BUG 2 FIX: read about text from admin textareas, save, then DIRECTLY update
+    // the blog DOM elements — do not rely on applyConfig's indirect tx() chain.
+    const p1val = $('about-p1')?.value || '';
+    const p2val = $('about-p2')?.value || '';
+    Config.saveSection('about', { p1: p1val, p2: p2val });
+
+    // Direct DOM update — works even while admin overlay is open
+    const blogP1 = document.getElementById('blog-about-p1');
+    const blogP2 = document.getElementById('blog-about-p2');
+    if (blogP1) blogP1.textContent = p1val;
+    if (blogP2) blogP2.textContent = p2val;
+
+    // Update sidebar social links immediately
+    Render.renderSocial(contacts);
+
+    Render.applyConfig(Config.all());
+    Render.renderPosts(Posts.all());
+    toast('✅ 联系方式已保存 — 前往「工具箱→导出 config.json」提交到 GitHub 全设备同步');
   };
 
   /* Profile */
@@ -716,7 +798,7 @@ const Admin = (() => {
       url:         $('p-site-url').value.trim(), // FIX F: save URL
     });
     Config.saveSection('footer',{copy:$('p-footer-copy').value.trim(),sub:$('p-footer-sub').value.trim()});
-    SEO.update(Config.all()); Render.applyConfig(Config.all()); toast('✅ 博主信息已保存');
+    SEO.update(Config.all()); Render.applyConfig(Config.all()); toast('✅ 博主信息已保存 — 前往「工具箱→导出 config.json」提交到 GitHub 全设备同步');
   };
 
   /* Theme */
@@ -745,8 +827,24 @@ const Admin = (() => {
   const saveGiscus=()=>{const c={...Config.get('comments'),enabled:!!$('g-enabled').checked,repo:$('g-repo').value.trim(),repoId:$('g-repo-id').value.trim(),category:$('g-cat').value.trim()||'General',categoryId:$('g-cat-id').value.trim()};Config.saveSection('comments',c);toast('✅ Giscus 配置已保存');};
   const clearStats=()=>{if(!confirm('确认清除所有统计？'))return;Stats.clear();loadTools();toast('🗑 统计数据已清除');};
 
-  /* Password */
-  const changePassword=()=>{const cur=$('pwd-cur').value,nw=$('pwd-new').value,cf=$('pwd-cfm').value;if(cur!==getPwd()){toast('⚠️ 当前密码错误');return;}if(nw.length<6){toast('⚠️ 新密码至少6位');return;}if(nw!==cf){toast('⚠️ 两次不一致');return;}Store.set('pwd',nw);['pwd-cur','pwd-new','pwd-cfm'].forEach(id=>{const e=$(id);if(e)e.value='';});toast('✅ 密码已更新');};
+  /* Password — FIX: hash stored in config.json, not localStorage */
+  const changePassword = async () => {
+    const cur = $('pwd-cur').value;
+    const nw  = $('pwd-new').value;
+    const cf  = $('pwd-cfm').value;
+    if (!cur || !nw || !cf) { toast('⚠️ 请填写所有密码字段'); return; }
+    const curHash = await sha256(cur);
+    if (curHash !== Config.getPasswordHash()) { toast('⚠️ 当前密码错误'); return; }
+    if (nw.length < 6)  { toast('⚠️ 新密码至少 6 位'); return; }
+    if (nw !== cf)       { toast('⚠️ 两次密码不一致'); return; }
+    const newHash = await sha256(nw);
+    Config.setPasswordHash(newHash);
+    ['pwd-cur','pwd-new','pwd-cfm'].forEach(id => { const e=$(id); if(e) e.value=''; });
+    // Password change MUST be committed to GitHub to work on other devices
+    toast('✅ 密码已更新 — 请点击下方「导出 config.json」并提交到 GitHub，密码才能在所有设备生效', 6000);
+    // Auto-trigger config export so user doesn't forget
+    setTimeout(() => downloadConfigJson(), 1500);
+  };
 
   return {
     doLogin, open, exit, switchPanel,
@@ -792,7 +890,7 @@ let curCat='all', curPage=1;
 
 function openAdmin()   { Admin.open(); }
 function exitAdmin()   { Admin.exit(); }
-function doLogin()     { Admin.doLogin(); }
+function doLogin()     { Admin.doLogin(); }  // Admin.doLogin is async, returns Promise — that's fine
 function toggleTheme() { Theme.toggle(); }
 function openPost(id)  { const p=Posts.byId(id); if(!p) return; Stats.recordOpen(id); Render.openModal(p); }
 function closeModal()  { Render.closeModal(); }
@@ -828,14 +926,16 @@ function saveTheme()       { Admin.saveTheme(); }
 function saveFont()        { Admin.saveFont(); }
 function saveGiscus()      { Admin.saveGiscus(); }
 function clearStats()      { Admin.clearStats(); }
-function changePassword()  { Admin.changePassword(); }
+function changePassword()  { Admin.changePassword(); }  // async
 function startNew()        { Admin.startNew(); }
 function cancelForm()      { Admin.cancelForm(); }
 function saveArticle()     { Admin.saveArticle(); }
 function addContact()      { Admin.addContact(); }
 function addSkill()        { Admin.addSkill(); }
 function previewBg()       { Admin.previewBg(); }
-function downloadRSS()     { Tools.downloadRSS(); }
+function downloadRSS()        { Tools.downloadRSS(); }
+function downloadConfigJson() { Tools.downloadConfigJson(); }
+function downloadPostsJson()  { Tools.downloadPostsJson(); }
 function downloadSitemap() { Tools.downloadSitemap(); }
 
 /* Keyboard nav */
@@ -849,18 +949,21 @@ document.addEventListener('keydown', e=>{
 
 /* Admin panel nav wiring */
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.anav').forEach(el=>el.addEventListener('click',()=>Admin.switchPanel(el.dataset.panel)));
-  document.querySelectorAll('.fbtn').forEach(btn=>btn.addEventListener('click',()=>filterByCat(btn.dataset.cat)));
+  document.querySelectorAll('.anav').forEach(el => el.addEventListener('click', () => Admin.switchPanel(el.dataset.panel)));
+  document.querySelectorAll('.fbtn').forEach(btn => btn.addEventListener('click', () => filterByCat(btn.dataset.cat)));
+});
 
-  // BUG 1 FIX: guarantee post grid is rendered after DOM is fully ready.
-  // The async IIFE may have already called renderPosts, but if anything
-  // raced or cleared the grid, this ensures a second pass runs once.
-  // Using requestAnimationFrame so it runs AFTER the current paint cycle.
-  requestAnimationFrame(() => {
-    if (Posts.all().length > 0 && document.getElementById('posts-grid')) {
+// BUG 1 FIX: window.load fires AFTER all resources (including fonts) are loaded.
+// By this time, the async IIFE has definitely completed and Posts.all() has data.
+// This is the reliable safety net for post rendering.
+window.addEventListener('load', () => {
+  const grid = document.getElementById('posts-grid');
+  // Only re-render if grid is empty (i.e., INIT renderPosts failed or wasn't called yet)
+  if (grid && (!grid.children.length || grid.querySelector('[style*="暂无"]'))) {
+    if (Posts.all().length > 0) {
       Render.renderPosts(Posts.all(), curCat, curPage);
     }
-  });
+  }
 });
 
 /* ── INIT ── */

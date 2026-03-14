@@ -97,5 +97,9 @@
   "footer": {
     "copy": "© 2025 Ryoko. All rights reserved.",
     "sub": "Handcrafted with care ✦"
+  },
+  "auth": {
+    "passwordHash": "5137f70d806a6e6786959e855e17c21f3ca2ff17d5ca2dbe1eaf1ec4e8db0c59",
+    "hint": "在管理后台「修改密码」后下载新的 config.json 并提交到 GitHub"
   }
 }

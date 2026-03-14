@@ -56,6 +56,9 @@
       <div class="admin-brand">
         <div class="admin-brand-name" id="admin-brand-el">Ryoko</div>
         <div class="admin-brand-sub">Admin</div>
+        <div id="sync-indicator" style="margin-top:8px;font-size:10px;padding:4px 8px;border-radius:4px;background:rgba(249,115,22,0.15);color:var(--orange);display:none">
+          ⚠ 有未同步改动
+        </div>
       </div>
       <nav class="admin-nav">
         <div class="anav active" data-panel="dashboard"><span>◈</span>数据看板</div>
@@ -260,6 +263,30 @@
 
       <section class="apanel" id="panel-tools">
         <h2 class="atitle">工具箱</h2><p class="asub">RSS / Sitemap / Giscus 评论 / 统计</p>
+
+        <!-- ★ 跨设备同步专区 — 最重要操作 ★ -->
+        <div class="acard" style="border-color:rgba(79,156,249,0.4);background:rgba(79,156,249,0.06);margin-bottom:16px">
+          <div class="acard-title" style="color:var(--blue)">★ 跨设备同步（重要）</div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:16px">
+            所有设置、文章、密码均存储在浏览器本地，<strong style="color:var(--blue)">只在当前设备有效</strong>。<br>
+            要让改动在所有设备（手机、其他电脑、别人的浏览器）生效，必须：<br>
+            ① 点下方按钮下载最新的 <code style="color:var(--cyan)">config.json</code> 和 <code style="color:var(--cyan)">posts.json</code><br>
+            ② 把这两个文件 <strong style="color:var(--blue)">上传并覆盖</strong> GitHub 仓库根目录里的同名文件<br>
+            ③ GitHub Pages 会在 1~2 分钟内自动更新，所有设备随即生效
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-primary" onclick="downloadConfigJson()" style="background:linear-gradient(135deg,var(--blue),var(--cyan))">
+              📥 导出 config.json（设置 + 密码）
+            </button>
+            <button class="btn-primary" onclick="downloadPostsJson()" style="background:linear-gradient(135deg,var(--cyan),var(--blue))">
+              📥 导出 posts.json（所有文章）
+            </button>
+          </div>
+          <div id="sync-status" style="margin-top:12px;font-size:12px;color:var(--muted)">
+            💡 每次修改设置后都建议导出并提交，确保数据不丢失
+          </div>
+        </div>
+
         <div class="acard">
           <div class="acard-title">RSS Feed</div>
           <p style="font-size:13px;color:var(--muted);margin-bottom:14px">下载后放入仓库根目录，命名 <code style="color:var(--cyan)">rss.xml</code>。</p>
@@ -290,7 +317,11 @@
       </section>
 
       <section class="apanel" id="panel-password">
-        <h2 class="atitle">修改密码</h2><p class="asub">更新管理员登录密码</p>
+        <h2 class="atitle">修改密码</h2>
+        <p class="asub">密码以 SHA-256 哈希形式存储在 config.json，修改后必须导出并提交到 GitHub 才能跨设备生效</p>
+        <div class="acard" style="margin-bottom:14px;padding:14px 18px;background:rgba(249,115,22,0.07);border-color:rgba(249,115,22,0.3)">
+          <span style="font-size:13px;color:var(--orange)">⚠️ 修改密码后会自动下载新的 config.json，请立即提交到 GitHub，否则其他设备密码仍为旧密码</span>
+        </div>
         <div class="acard" style="max-width:380px">
           <div class="fg" style="margin-bottom:10px"><label>当前密码</label><input id="pwd-cur" class="fi" type="password"></div>
           <div class="fg" style="margin-bottom:10px"><label>新密码（≥6位）</label><input id="pwd-new" class="fi" type="password"></div>
