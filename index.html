@@ -17,19 +17,33 @@
   <meta id="tw-title" name="twitter:title" content="Ryoko">
   <meta id="tw-desc" name="twitter:description" content="个人博客">
   <link id="rss-link" rel="alternate" type="application/rss+xml" title="RSS" href="./rss.xml">
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Great+Vibes&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+  <!-- Highlight.js -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <!-- Marked.js -->
   <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+
+  <!-- KaTeX -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Firebase (compat SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
-<!-- FX LAYERS -->
+<!-- FX -->
 <div id="dot-grid"></div>
 <div id="spotlight"></div>
 <canvas id="cv-particles" class="fx-cv"></canvas>
@@ -38,7 +52,85 @@
 <canvas id="cv-snow" class="fx-cv"></canvas>
 <div id="toast" role="alert" aria-live="polite"></div>
 
-<!-- ADMIN -->
+<!-- ══════════ AUTH MODAL ══════════ -->
+<div id="auth-modal" class="modal-overlay" onclick="closeAuthModalBg(event)">
+  <div class="auth-box">
+    <div class="auth-header">
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" data-tab="login" onclick="switchAuthTab('login')">登录</button>
+        <button class="auth-tab-btn" data-tab="register" onclick="switchAuthTab('register')">注册</button>
+      </div>
+      <button class="modal-close" onclick="closeAuthModal()">✕</button>
+    </div>
+
+    <!-- Login -->
+    <div id="auth-login-panel">
+      <div class="auth-logo">Ryoko</div>
+      <p class="auth-sub">欢迎回来</p>
+      <input id="login-email" class="fi" type="email" placeholder="邮箱地址" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')doAuthLogin()">
+      <input id="login-pwd" class="fi" type="password" placeholder="密码" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')doAuthLogin()">
+      <button class="btn-primary" style="width:100%" onclick="doAuthLogin()">登录</button>
+      <p class="auth-switch">还没有账号？<a onclick="switchAuthTab('register')">立即注册</a></p>
+    </div>
+
+    <!-- Register -->
+    <div id="auth-register-panel" style="display:none">
+      <div class="auth-logo">加入 Ryoko</div>
+      <p class="auth-sub">创建你的账号</p>
+      <input id="reg-username" class="fi" placeholder="用户名" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')doRegister()">
+      <input id="reg-email" class="fi" type="email" placeholder="邮箱地址" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')doRegister()">
+      <input id="reg-pwd" class="fi" type="password" placeholder="密码（至少 6 位）" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')doRegister()">
+      <button class="btn-primary" style="width:100%" onclick="doRegister()">注册</button>
+      <p class="auth-switch">已有账号？<a onclick="switchAuthTab('login')">直接登录</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ POST CREATE MODAL ══════════ -->
+<div id="post-create-modal" class="modal-overlay" onclick="closePostCreateBg(event)">
+  <div class="post-create-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="font-family:var(--font-display);font-size:22px;font-weight:300;color:var(--text)">✏️ 发布文章</h3>
+      <button class="modal-close" style="position:static" onclick="closePostCreate()">✕</button>
+    </div>
+    <div class="fgrid">
+      <div class="fg full"><label>标题</label><input id="pc-title" class="fi" placeholder="文章标题"></div>
+      <div class="fg">
+        <label>分类</label>
+        <select id="pc-cat" class="fi">
+          <option value="tech">技术</option><option value="design">设计</option>
+          <option value="life">生活</option><option value="think">思考</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>格式</label>
+        <select id="pc-format" class="fi">
+          <option value="markdown">Markdown（推荐）</option>
+          <option value="html">HTML</option>
+        </select>
+      </div>
+      <div class="fg full"><label>摘要（可选，留空自动截取）</label><input id="pc-excerpt" class="fi" placeholder="一句话介绍"></div>
+      <div class="fg full"><label>标签（逗号分隔，如 C++,算法,AI）</label><input id="pc-tags" class="fi" placeholder="#C++,#算法,#AI"></div>
+      <div class="fg full">
+        <label>正文（支持 Markdown · LaTeX · 代码块）</label>
+        <div class="ced-wrap">
+          <div class="ced-bar">
+            <span class="ced-dot r"></span><span class="ced-dot y"></span><span class="ced-dot g"></span>
+            <span style="margin-left:10px;font-size:11px;color:var(--muted)">markdown</span>
+          </div>
+          <textarea id="pc-content" class="fi code-ta" rows="12" placeholder="# 文章标题&#10;&#10;支持 **Markdown**、`code`、$$LaTeX$$"></textarea>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-primary" onclick="submitCommunityPost()">发布</button>
+      <button class="btn-ghost sm" onclick="closePostCreate()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ADMIN ══════════ -->
 <div id="admin-overlay">
   <div id="admin-login">
     <div class="login-box">
@@ -51,18 +143,18 @@
       <p class="login-back" onclick="exitAdmin()">← 返回博客</p>
     </div>
   </div>
+
   <div id="admin-app" style="display:none">
     <aside class="admin-sidebar">
       <div class="admin-brand">
         <div class="admin-brand-name" id="admin-brand-el">Ryoko</div>
         <div class="admin-brand-sub">Admin</div>
-        <div id="sync-indicator" style="margin-top:8px;font-size:10px;padding:4px 8px;border-radius:4px;background:rgba(249,115,22,0.15);color:var(--orange);display:none">
-          ⚠ 有未同步改动
-        </div>
+        <div id="sync-indicator" style="margin-top:8px;font-size:10px;padding:4px 8px;border-radius:4px;background:rgba(249,115,22,0.15);color:var(--orange);display:none">⚠ 有未同步改动</div>
       </div>
       <nav class="admin-nav">
         <div class="anav active" data-panel="dashboard"><span>◈</span>数据看板</div>
         <div class="anav" data-panel="articles"><span>◇</span>文章管理</div>
+        <div class="anav" data-panel="announce"><span>📢</span>公告管理</div>
         <hr class="anav-hr">
         <div class="anav" data-panel="hero"><span>⊹</span>主页定制</div>
         <div class="anav" data-panel="effects"><span>✺</span>特效管理</div>
@@ -73,10 +165,12 @@
         <div class="anav" data-panel="tools"><span>⚙</span>工具箱</div>
         <div class="anav" data-panel="password"><span>✦</span>修改密码</div>
       </nav>
-      <div class="admin-exit" onclick="exitAdmin()">← 返回博客 &amp; 预览效果</div>
+      <div class="admin-exit" onclick="exitAdmin()">← 返回博客 & 预览</div>
     </aside>
+
     <main class="admin-main" id="admin-main">
 
+      <!-- DASHBOARD -->
       <section class="apanel active" id="panel-dashboard">
         <h2 class="atitle">数据看板</h2><p class="asub">博客运营概览</p>
         <div class="stats-row" id="dash-stats"></div>
@@ -87,61 +181,27 @@
         <div class="act-box"><p class="clabel">最近动态</p><div id="act-list"></div></div>
       </section>
 
+      <!-- ARTICLES -->
       <section class="apanel" id="panel-articles">
-        <h2 class="atitle">文章管理</h2><p class="asub">新增、编辑或删除文章</p>
-        <div class="toolbar">
-          <span id="art-count" class="tcnt"></span>
-          <button class="btn-sm" onclick="startNew()">+ 新建文章</button>
-        </div>
+        <h2 class="atitle">文章管理</h2><p class="asub">官方博客文章（存储在 posts.json）</p>
+        <div class="toolbar"><span id="art-count" class="tcnt"></span><button class="btn-sm" onclick="startNew()">+ 新建文章</button></div>
         <div id="art-form" class="acard" style="display:none;margin-bottom:20px">
           <h3 class="acard-title" id="form-mode-label">新建文章</h3>
           <div class="fgrid">
             <div class="fg full"><label>标题</label><input id="f-title" class="fi" placeholder="文章标题"></div>
-            <div class="fg">
-              <label>分类</label>
-              <select id="f-cat" class="fi">
-                <option value="tech">技术</option><option value="design">设计</option>
-                <option value="life">生活</option><option value="think">思考</option>
-              </select>
-            </div>
+            <div class="fg"><label>分类</label><select id="f-cat" class="fi"><option value="tech">技术</option><option value="design">设计</option><option value="life">生活</option><option value="think">思考</option></select></div>
             <div class="fg"><label>日期</label><input id="f-date" class="fi" type="date"></div>
             <div class="fg full"><label>摘要</label><input id="f-excerpt" class="fi" placeholder="一句话描述"></div>
             <div class="fg full"><label>标签（逗号分隔）</label><input id="f-tags" class="fi" placeholder="#标签1,#标签2"></div>
-            <div class="fg">
-              <label>正文格式</label>
-              <select id="f-format" class="fi">
-                <option value="markdown">Markdown（推荐）</option>
-                <option value="html">HTML</option>
-              </select>
-            </div>
-            <div class="fg">
-              <label>封面主题</label>
-              <select id="f-cover" class="fi">
-                <option value="cv1">电蓝</option><option value="cv2">青蓝</option>
-                <option value="cv3">霓虹绿</option><option value="cv4">紫粉</option>
-                <option value="cv5">赛博橙</option>
-              </select>
-            </div>
-            <div class="fg"><label>封面符号</label><input id="f-glyph" class="fi" placeholder="✦"></div>
-            <div class="fg" style="justify-content:flex-end;padding-top:22px">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--muted)">
-                <input type="checkbox" id="f-featured" style="accent-color:var(--blue)"> 设为精选
-              </label>
-            </div>
+            <div class="fg"><label>格式</label><select id="f-format" class="fi"><option value="markdown">Markdown</option><option value="html">HTML</option></select></div>
+            <div class="fg"><label>封面</label><select id="f-cover" class="fi"><option value="cv1">电蓝</option><option value="cv2">青蓝</option><option value="cv3">霓虹绿</option><option value="cv4">紫粉</option><option value="cv5">赛博橙</option></select></div>
+            <div class="fg"><label>符号</label><input id="f-glyph" class="fi" placeholder="✦"></div>
+            <div class="fg" style="justify-content:flex-end;padding-top:22px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--muted)"><input type="checkbox" id="f-featured" style="accent-color:var(--blue)"> 设为精选</label></div>
             <div class="fg full">
-              <label>正文 <span style="color:var(--muted);font-weight:400">（支持 Markdown · LaTeX $...$ $$...$$ · 代码块）</span></label>
+              <label>正文</label>
               <div class="ced-wrap">
-                <div class="ced-bar">
-                  <span class="ced-dot r"></span><span class="ced-dot y"></span><span class="ced-dot g"></span>
-                  <span id="ced-lang" style="margin-left:10px;font-size:11px;color:var(--muted)">markdown</span>
-                  <span style="flex:1"></span>
-                  <button class="ced-btn" onclick="mdHelper('bold')"><b>B</b></button>
-                  <button class="ced-btn" onclick="mdHelper('code')">code</button>
-                  <button class="ced-btn" onclick="mdHelper('math')">∑</button>
-                  <button class="ced-btn" onclick="mdHelper('link')">🔗</button>
-                  <button class="ced-btn" onclick="mdHelper('table')">⊞</button>
-                </div>
-                <textarea id="f-content" class="fi code-ta" rows="14" placeholder="# 标题&#10;&#10;正文支持 **bold**、`code`、$$LaTeX$$、代码块..."></textarea>
+                <div class="ced-bar"><span class="ced-dot r"></span><span class="ced-dot y"></span><span class="ced-dot g"></span><span style="margin-left:10px;font-size:11px;color:var(--muted)">markdown</span></div>
+                <textarea id="f-content" class="fi code-ta" rows="14" placeholder="# 标题&#10;&#10;正文支持 **Markdown**..."></textarea>
               </div>
             </div>
           </div>
@@ -150,12 +210,25 @@
             <button class="btn-ghost sm" onclick="cancelForm()">取消</button>
           </div>
         </div>
-        <div class="atable">
-          <div class="thead"><span>标题</span><span>分类</span><span>日期</span><span>操作</span></div>
-          <div id="art-body"></div>
-        </div>
+        <div class="atable"><div class="thead"><span>标题</span><span>分类</span><span>日期</span><span>操作</span></div><div id="art-body"></div></div>
       </section>
 
+      <!-- ANNOUNCE -->
+      <section class="apanel" id="panel-announce">
+        <h2 class="atitle">公告管理</h2><p class="asub">全站公告将显示在首页顶部（需要 Firebase）</p>
+        <div class="acard" style="margin-bottom:14px">
+          <div class="acard-title">发布新公告</div>
+          <div class="fgrid">
+            <div class="fg full"><label>公告标题</label><input id="ann-title" class="fi" placeholder="公告标题"></div>
+            <div class="fg full"><label>公告内容（可选）</label><input id="ann-content" class="fi" placeholder="详细说明..."></div>
+            <div class="fg full"><label class="tgl-label"><input type="checkbox" id="ann-pinned" class="tgl-cb"> 置顶显示</label></div>
+          </div>
+          <button class="btn-primary" style="margin-top:14px" onclick="saveAnnounce()">发布公告</button>
+        </div>
+        <div class="acard"><div class="acard-title">已有公告</div><div id="announce-panel-content" style="margin-top:8px"></div></div>
+      </section>
+
+      <!-- HERO -->
       <section class="apanel" id="panel-hero">
         <h2 class="atitle">主页定制</h2><p class="asub">自定义 Hero 文案与背景</p>
         <div class="acard">
@@ -172,40 +245,24 @@
         <div class="acard" style="margin-top:14px">
           <div class="acard-title">背景图（可选）</div>
           <div class="fg full"><label>图片 URL（留空 = 极光）</label><input id="h-bg" class="fi" oninput="previewBg()"></div>
-          <div class="fg full" style="margin-top:10px">
-            <label>叠加透明度 <span id="h-opa-val">0.5</span></label>
-            <input type="range" id="h-opacity" min="0" max="1" step="0.05" value="0.5" style="width:100%;accent-color:var(--blue)" oninput="document.getElementById('h-opa-val').textContent=this.value;previewBg()">
-          </div>
+          <div class="fg full" style="margin-top:10px"><label>叠加透明度 <span id="h-opa-val">0.5</span></label><input type="range" id="h-opacity" min="0" max="1" step="0.05" value="0.5" style="width:100%;accent-color:var(--blue)" oninput="document.getElementById('h-opa-val').textContent=this.value;previewBg()"></div>
           <div id="bg-preview" class="bgprev">暂无背景图</div>
         </div>
-        <div class="acard" style="margin-top:14px">
-          <div class="acard-title">IDE 代码装饰块</div>
-          <label class="tgl-label"><input type="checkbox" id="h-show-code" class="tgl-cb"> 在 Hero 显示 IDE 代码块</label>
-        </div>
+        <div class="acard" style="margin-top:14px"><div class="acard-title">IDE 代码装饰块</div><label class="tgl-label"><input type="checkbox" id="h-show-code" class="tgl-cb"> 在 Hero 显示 IDE 代码块</label></div>
         <button class="btn-primary" style="margin-top:18px" onclick="saveHero()">保存主页设置</button>
       </section>
 
+      <!-- EFFECTS -->
       <section class="apanel" id="panel-effects">
-        <h2 class="atitle">特效管理</h2><p class="asub">开关实时生效，保存后持久化</p>
-        <div id="fx-hint" style="display:none;margin-bottom:16px;padding:12px 16px;background:rgba(79,156,249,0.1);border:1px solid rgba(79,156,249,0.3);border-radius:8px;font-size:13px;color:var(--text2);line-height:1.7">
-          💡 <strong style="color:var(--blue)">如何预览特效</strong>：<br>
-          ① 在这里开启特效并保存<br>
-          ② 点击左下角「← 返回博客」即可看到效果<br>
-          ③ 粒子/星尘/拖尾/雪花 全页可见；极光只在 Hero 顶部区域
-        </div>
+        <h2 class="atitle">特效管理</h2><p class="asub">✦粒子支持鼠标吸附(O001) · 文章卡片支持3D倾斜(O002)</p>
         <div class="fx-grid" id="fx-grid"></div>
         <button class="btn-primary" style="margin-top:20px" onclick="saveEffects()">保存特效设置</button>
       </section>
 
+      <!-- CONTACT -->
       <section class="apanel" id="panel-contact">
         <h2 class="atitle">联系方式</h2><p class="asub">侧边栏与页脚社交链接</p>
-        <div class="acard">
-          <div class="toolbar" style="margin-bottom:14px">
-            <span class="tcnt">支持无限增删</span>
-            <button class="btn-sm" onclick="addContact()">+ 新增</button>
-          </div>
-          <div id="contact-list"></div>
-        </div>
+        <div class="acard"><div class="toolbar" style="margin-bottom:14px"><span class="tcnt">支持无限增删</span><button class="btn-sm" onclick="addContact()">+ 新增</button></div><div id="contact-list"></div></div>
         <div class="acard" style="margin-top:14px">
           <div class="acard-title">关于我页面文字</div>
           <div class="fg full" style="margin-bottom:10px"><label>第一段</label><textarea id="about-p1" class="fi" style="height:65px;resize:vertical"></textarea></div>
@@ -214,114 +271,68 @@
         <button class="btn-primary" style="margin-top:18px" onclick="saveContact()">保存</button>
       </section>
 
+      <!-- PROFILE -->
       <section class="apanel" id="panel-profile">
         <h2 class="atitle">博主信息</h2><p class="asub">个人资料与博客基础配置</p>
         <div class="acard pcard">
-          <div class="pav-col">
-            <div class="avatar-big" id="admin-av-preview">R</div>
-            <span style="font-size:11px;color:var(--muted)">头像字母</span>
-          </div>
+          <div class="pav-col"><div class="avatar-big" id="admin-av-preview">R</div><span style="font-size:11px;color:var(--muted)">头像字母</span></div>
           <div class="fgrid">
             <div class="fg"><label>头像字母</label><input id="p-av" class="fi" maxlength="2" oninput="document.getElementById('admin-av-preview').textContent=this.value||'R'"></div>
             <div class="fg"><label>显示名称</label><input id="p-name" class="fi"></div>
             <div class="fg full"><label>个人简介</label><textarea id="p-bio" class="fi" style="height:65px;resize:vertical"></textarea></div>
             <div class="fg"><label>博客名（Logo）</label><input id="p-blog-name" class="fi"></div>
             <div class="fg"><label>博客副标题</label><input id="p-blog-sub" class="fi"></div>
-            <div class="fg full"><label>网站 URL（用于 RSS / Sitemap / SEO，如 https://yourname.github.io）</label><input id="p-site-url" class="fi" placeholder="https://yourname.github.io" type="url"></div>
+            <div class="fg full"><label>网站 URL（用于 RSS/Sitemap/SEO）</label><input id="p-site-url" class="fi" placeholder="https://yourname.github.io" type="url"></div>
             <div class="fg"><label>页脚版权</label><input id="p-footer-copy" class="fi"></div>
             <div class="fg"><label>页脚副文字</label><input id="p-footer-sub" class="fi"></div>
             <div class="fg full"><button class="btn-primary" onclick="saveProfile()">保存信息</button></div>
           </div>
         </div>
-        <div class="acard" style="margin-top:14px">
-          <div class="toolbar" style="margin-bottom:0">
-            <span class="acard-title" style="margin-bottom:0">技能条</span>
-            <button class="btn-ghost sm" onclick="addSkill()">+ 添加</button>
-          </div>
-          <div id="skills-editor" style="margin-top:14px"></div>
-          <button class="btn-sm" style="margin-top:12px" onclick="saveSkills()">保存技能</button>
-        </div>
+        <div class="acard" style="margin-top:14px"><div class="toolbar" style="margin-bottom:0"><span class="acard-title" style="margin-bottom:0">技能条</span><button class="btn-ghost sm" onclick="addSkill()">+ 添加</button></div><div id="skills-editor" style="margin-top:14px"></div><button class="btn-sm" style="margin-top:12px" onclick="saveSkills()">保存技能</button></div>
       </section>
 
+      <!-- THEME -->
       <section class="apanel" id="panel-theme">
         <h2 class="atitle">主题外观</h2><p class="asub">配色预设与字体</p>
         <div class="chart-row">
-          <div class="acard">
-            <div class="acard-title">配色预设</div>
-            <div id="preset-swatches" class="swatch-row"></div>
-            <div class="color-row"><span>主色</span><input type="color" id="t-c1" class="ci" oninput="previewColor('blue',this.value)"></div>
-            <div class="color-row"><span>辅色</span><input type="color" id="t-c2" class="ci" oninput="previewColor('cyan',this.value)"></div>
-            <button class="btn-primary" style="width:100%;margin-top:10px" onclick="saveTheme()">应用配色</button>
-          </div>
-          <div class="acard">
-            <div class="acard-title">字体</div>
-            <div id="font-opts" class="font-opts"></div>
-            <button class="btn-primary" style="width:100%;margin-top:12px" onclick="saveFont()">应用字体</button>
-          </div>
+          <div class="acard"><div class="acard-title">配色预设</div><div id="preset-swatches" class="swatch-row"></div><div class="color-row"><span>主色</span><input type="color" id="t-c1" class="ci" oninput="Admin.previewColor('blue',this.value)"></div><div class="color-row"><span>辅色</span><input type="color" id="t-c2" class="ci" oninput="Admin.previewColor('cyan',this.value)"></div><button class="btn-primary" style="width:100%;margin-top:10px" onclick="saveTheme()">应用配色</button></div>
+          <div class="acard"><div class="acard-title">字体</div><div id="font-opts" class="font-opts"></div><button class="btn-primary" style="width:100%;margin-top:12px" onclick="saveFont()">应用字体</button></div>
         </div>
       </section>
 
+      <!-- TOOLS -->
       <section class="apanel" id="panel-tools">
-        <h2 class="atitle">工具箱</h2><p class="asub">RSS / Sitemap / Giscus 评论 / 统计</p>
-
-        <!-- ★ 跨设备同步专区 — 最重要操作 ★ -->
+        <h2 class="atitle">工具箱</h2><p class="asub">跨设备同步 / RSS / Sitemap / Giscus / 统计</p>
         <div class="acard" style="border-color:rgba(79,156,249,0.4);background:rgba(79,156,249,0.06);margin-bottom:16px">
           <div class="acard-title" style="color:var(--blue)">★ 跨设备同步（重要）</div>
-          <p style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:16px">
-            所有设置、文章、密码均存储在浏览器本地，<strong style="color:var(--blue)">只在当前设备有效</strong>。<br>
-            要让改动在所有设备（手机、其他电脑、别人的浏览器）生效，必须：<br>
-            ① 点下方按钮下载最新的 <code style="color:var(--cyan)">config.json</code> 和 <code style="color:var(--cyan)">posts.json</code><br>
-            ② 把这两个文件 <strong style="color:var(--blue)">上传并覆盖</strong> GitHub 仓库根目录里的同名文件<br>
-            ③ GitHub Pages 会在 1~2 分钟内自动更新，所有设备随即生效
-          </p>
+          <p style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:16px">所有设置只存在当前浏览器。要在所有设备生效：<br>① 点按钮下载文件 ② 上传覆盖 GitHub 仓库同名文件 ③ 等 1~2 分钟</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn-primary" onclick="downloadConfigJson()" style="background:linear-gradient(135deg,var(--blue),var(--cyan))">
-              📥 导出 config.json（设置 + 密码）
-            </button>
-            <button class="btn-primary" onclick="downloadPostsJson()" style="background:linear-gradient(135deg,var(--cyan),var(--blue))">
-              📥 导出 posts.json（所有文章）
-            </button>
-          </div>
-          <div id="sync-status" style="margin-top:12px;font-size:12px;color:var(--muted)">
-            💡 每次修改设置后都建议导出并提交，确保数据不丢失
+            <button class="btn-primary" onclick="downloadConfigJson()">📥 导出 config.json（设置 + 密码）</button>
+            <button class="btn-primary" onclick="downloadPostsJson()" style="background:linear-gradient(135deg,var(--cyan),var(--blue))">📥 导出 posts.json（所有文章）</button>
           </div>
         </div>
-
-        <div class="acard">
-          <div class="acard-title">RSS Feed</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">下载后放入仓库根目录，命名 <code style="color:var(--cyan)">rss.xml</code>。</p>
-          <button class="btn-sm" onclick="downloadRSS()">⬇ 生成 rss.xml</button>
-        </div>
-        <div class="acard" style="margin-top:14px">
-          <div class="acard-title">Sitemap</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">下载后放入仓库根目录，命名 <code style="color:var(--cyan)">sitemap.xml</code>。</p>
-          <button class="btn-sm" onclick="downloadSitemap()">⬇ 生成 sitemap.xml</button>
-        </div>
-        <div class="acard" style="margin-top:14px">
-          <div class="acard-title">Giscus 评论系统</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">前往 <a href="https://giscus.app" target="_blank" style="color:var(--blue)">giscus.app</a> 获取参数，填入后文章底部自动显示评论。</p>
+        <div class="acard" style="margin-bottom:14px"><div class="acard-title">RSS Feed</div><p style="font-size:13px;color:var(--muted);margin-bottom:14px">下载后放入仓库根目录，命名 <code style="color:var(--cyan)">rss.xml</code>。</p><button class="btn-sm" onclick="downloadRSS()">⬇ 生成 rss.xml</button></div>
+        <div class="acard" style="margin-bottom:14px"><div class="acard-title">Sitemap</div><p style="font-size:13px;color:var(--muted);margin-bottom:14px">下载后放入仓库根目录，命名 <code style="color:var(--cyan)">sitemap.xml</code>。</p><button class="btn-sm" onclick="downloadSitemap()">⬇ 生成 sitemap.xml</button></div>
+        <div class="acard" style="margin-bottom:14px">
+          <div class="acard-title">Giscus 评论（备用）</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Firebase 未配置时使用。前往 <a href="https://giscus.app" target="_blank" style="color:var(--blue)">giscus.app</a> 获取参数。</p>
           <div class="fgrid">
-            <div class="fg"><label>GitHub Repo (owner/repo)</label><input id="g-repo" class="fi" placeholder="username/repo"></div>
+            <div class="fg"><label>GitHub Repo</label><input id="g-repo" class="fi" placeholder="username/repo"></div>
             <div class="fg"><label>Repo ID</label><input id="g-repo-id" class="fi" placeholder="R_kgDO..."></div>
             <div class="fg"><label>Category</label><input id="g-cat" class="fi" placeholder="General"></div>
             <div class="fg"><label>Category ID</label><input id="g-cat-id" class="fi" placeholder="DIC_kwDO..."></div>
-            <div class="fg full"><label class="tgl-label" style="margin-top:4px"><input type="checkbox" id="g-enabled" class="tgl-cb"> 启用 Giscus 评论</label></div>
+            <div class="fg full"><label class="tgl-label" style="margin-top:4px"><input type="checkbox" id="g-enabled" class="tgl-cb"> 启用 Giscus</label></div>
           </div>
           <button class="btn-sm" style="margin-top:14px" onclick="saveGiscus()">保存评论配置</button>
         </div>
-        <div class="acard" style="margin-top:14px">
-          <div class="acard-title">网站统计</div>
-          <div id="stats-detail" style="font-size:13px;color:var(--muted);line-height:2.2"></div>
-          <button class="btn-ghost sm" style="margin-top:12px" onclick="clearStats()">清除统计数据</button>
-        </div>
+        <div class="acard"><div class="acard-title">网站统计</div><div id="stats-detail" style="font-size:13px;color:var(--muted);line-height:2.2"></div><button class="btn-ghost sm" style="margin-top:12px" onclick="clearStats()">清除统计数据</button></div>
       </section>
 
+      <!-- PASSWORD -->
       <section class="apanel" id="panel-password">
         <h2 class="atitle">修改密码</h2>
-        <p class="asub">密码以 SHA-256 哈希形式存储在 config.json，修改后必须导出并提交到 GitHub 才能跨设备生效</p>
-        <div class="acard" style="margin-bottom:14px;padding:14px 18px;background:rgba(249,115,22,0.07);border-color:rgba(249,115,22,0.3)">
-          <span style="font-size:13px;color:var(--orange)">⚠️ 修改密码后会自动下载新的 config.json，请立即提交到 GitHub，否则其他设备密码仍为旧密码</span>
-        </div>
+        <p class="asub">密码以 SHA-256 哈希存在 config.json，修改后自动下载新文件，提交到 GitHub 全设备生效</p>
+        <div class="acard" style="margin-bottom:14px;padding:14px 18px;background:rgba(249,115,22,0.07);border-color:rgba(249,115,22,0.3)"><span style="font-size:13px;color:var(--orange)">⚠️ 修改后请立即提交到 GitHub，否则其他设备密码仍为旧密码</span></div>
         <div class="acard" style="max-width:380px">
           <div class="fg" style="margin-bottom:10px"><label>当前密码</label><input id="pwd-cur" class="fi" type="password"></div>
           <div class="fg" style="margin-bottom:10px"><label>新密码（≥6位）</label><input id="pwd-new" class="fi" type="password"></div>
@@ -334,7 +345,7 @@
   </div>
 </div>
 
-<!-- BLOG -->
+<!-- ══════════ BLOG ══════════ -->
 <header id="site-nav">
   <div class="nav-inner">
     <a class="nav-logo" id="nav-logo" onclick="logoClick()" tabindex="0">Ryoko</a>
@@ -347,41 +358,44 @@
         <input id="search-input" class="search-input" type="search" placeholder="搜索…" autocomplete="off" oninput="doSearch(this.value)">
         <div id="search-results" class="search-results" style="display:none"></div>
       </div>
+      <!-- F001: User nav area -->
+      <div id="user-nav-area" class="user-nav-area"></div>
       <button class="icon-btn" onclick="toggleTheme()" title="切换主题">☾</button>
       <button class="nav-admin-btn" onclick="openAdmin()">管理</button>
     </div>
   </div>
 </header>
 
+<!-- F006: Announcement bar -->
+<div id="announce-bar" class="announce-bar" style="display:none"></div>
+
+<!-- Firebase not configured notice -->
+<div id="firebase-notice" style="display:none;background:rgba(249,115,22,0.08);border-bottom:1px solid rgba(249,115,22,0.25);padding:10px 32px;font-size:12px;color:var(--orange);text-align:center">
+  💡 Firebase 未配置 — 社区、评论、公告功能不可用。<a href="https://github.com/your-repo#firebase-setup" target="_blank" style="color:var(--blue);margin-left:8px">查看配置教程 →</a>
+</div>
+
+<!-- HERO -->
 <section id="hero">
   <div class="aurora-wrap" id="aurora-wrap">
     <div class="ab ab1"></div><div class="ab ab2"></div>
     <div class="ab ab3"></div><div class="ab ab4"></div>
     <div class="aurora-fade"></div>
-    <div class="aurora-fade-top"></div>
   </div>
   <div id="hero-bg-img"></div>
-  <!-- BUG FIX: hero-content has generous padding so bg-clip text is never clipped -->
   <div class="hero-content">
     <div class="hero-badge"><span class="badge-dot"></span><span id="hero-badge-text">Personal Blog · Code and Record</span></div>
     <h1 class="hero-title">
       <span id="hero-line1">Ryoko's</span>
-      <!-- BUG FIX: em on its own block with overflow:visible, so long English never clips -->
       <em class="hero-em" id="hero-line2">Personal Blog</em>
     </h1>
     <p class="hero-sub" id="hero-sub-text">记录技术、设计与生活的交汇处，在文字中寻找秩序与美感的平衡</p>
     <div class="hero-cta">
       <button class="btn-primary" id="hero-btn1" onclick="scrollTo2('posts-section')">开始阅读</button>
-      <button class="btn-ghost"   id="hero-btn2" onclick="scrollTo2('about-section')">了解我</button>
+      <button class="btn-ghost" id="hero-btn2" onclick="scrollTo2('about-section')">了解我</button>
     </div>
     <div class="hero-code" id="hero-code">
       <div class="ide-win">
-        <div class="ide-bar">
-          <span class="ide-dot" style="background:#ff5f57"></span>
-          <span class="ide-dot" style="background:#febc2e"></span>
-          <span class="ide-dot" style="background:#28c840"></span>
-          <span class="ide-fname">blog.ts</span>
-        </div>
+        <div class="ide-bar"><span class="ide-dot" style="background:#ff5f57"></span><span class="ide-dot" style="background:#febc2e"></span><span class="ide-dot" style="background:#28c840"></span><span class="ide-fname">blog.ts</span></div>
         <div class="ide-body">
           <span class="ck">import</span> <span class="cv">{ thoughts }</span> <span class="ck">from</span> <span class="cs">'./mind'</span>;<br>
           <span class="ck">const</span> <span class="cv">blog</span> = <span class="ck">new</span> <span class="ct">Ryoko</span>({<br>
@@ -393,56 +407,80 @@
       </div>
     </div>
   </div>
-  <div class="scroll-hint" onclick="scrollTo2('posts-section')">
-    <div class="scroll-line"></div><span>SCROLL</span>
-  </div>
+  <div class="scroll-hint" onclick="scrollTo2('posts-section')"><div class="scroll-line"></div><span>SCROLL</span></div>
 </section>
 
+<!-- POSTS SECTION -->
 <div class="main-wrap" id="posts-section">
   <div class="section-head">
-    <div class="eyebrow">最新文章</div>
+    <div class="eyebrow">文章</div>
     <h2 class="section-title">思想与<em>洞见</em></h2>
   </div>
-  <div class="filter-bar" id="filter-bar">
-    <button class="fbtn active" data-cat="all">全部</button>
-    <button class="fbtn" data-cat="tech">技术</button>
-    <button class="fbtn" data-cat="design">设计</button>
-    <button class="fbtn" data-cat="life">生活</button>
-    <button class="fbtn" data-cat="think">思考</button>
+
+  <!-- F002: Tab bar -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" data-tab="official">📝 官方博客</button>
+    <button class="tab-btn" data-tab="community">🌐 社区广场</button>
   </div>
-  <div class="content-layout">
-    <div>
-      <div id="posts-grid" class="posts-grid"></div>
-      <div id="pagination" class="pagination"></div>
+
+  <!-- Official section -->
+  <div id="official-section">
+    <div class="filter-bar" id="filter-bar">
+      <button class="fbtn active" data-cat="all">全部</button>
+      <button class="fbtn" data-cat="tech">技术</button>
+      <button class="fbtn" data-cat="design">设计</button>
+      <button class="fbtn" data-cat="life">生活</button>
+      <button class="fbtn" data-cat="think">思考</button>
     </div>
-    <aside class="sidebar">
-      <div class="widget"><div class="wt">关于博主</div>
-        <div class="author-card">
-          <div class="avatar" id="sidebar-av">R</div>
-          <p class="author-name" id="sidebar-name">Ryoko</p>
-          <p class="author-bio" id="sidebar-bio">热爱技术与设计的独立创作者。</p>
-          <div class="social-links" id="sidebar-social"></div>
+    <div class="content-layout">
+      <div>
+        <div id="posts-grid" class="posts-grid"></div>
+        <div id="pagination" class="pagination"></div>
+      </div>
+      <aside class="sidebar">
+        <div class="widget"><div class="wt">关于博主</div>
+          <div class="author-card">
+            <div class="avatar" id="sidebar-av">R</div>
+            <p class="author-name" id="sidebar-name">Ryoko</p>
+            <p class="author-bio" id="sidebar-bio">热爱技术与设计的独立创作者。</p>
+            <div class="social-links" id="sidebar-social"></div>
+          </div>
         </div>
+        <div class="widget"><div class="wt">博客数据</div><div id="mini-stats"></div></div>
+        <div class="widget"><div class="wt">文章分类</div><div id="cat-list"></div></div>
+        <div class="widget"><div class="wt">标签云</div><div class="tag-cloud" id="tag-cloud"></div></div>
+        <div class="widget">
+          <div class="wt">订阅更新</div>
+          <p class="wdesc">第一时间获取新文章。</p>
+          <input class="fi" id="email-input" type="email" placeholder="your@email.com" style="margin-bottom:8px">
+          <button class="btn-primary" style="width:100%" onclick="doSubscribe()">订阅 →</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- F002: Community section -->
+  <div id="community-section" style="display:none">
+    <div class="comm-toolbar">
+      <div class="filter-bar" id="comm-filter-bar" style="flex:1">
+        <button class="fbtn active" data-cat="all" onclick="filterCommCat('all')">全部</button>
+        <button class="fbtn" data-cat="tech" onclick="filterCommCat('tech')">技术</button>
+        <button class="fbtn" data-cat="design" onclick="filterCommCat('design')">设计</button>
+        <button class="fbtn" data-cat="life" onclick="filterCommCat('life')">生活</button>
+        <button class="fbtn" data-cat="think" onclick="filterCommCat('think')">思考</button>
+        <button class="fbtn" data-cat="other" onclick="filterCommCat('other')">其他</button>
       </div>
-      <div class="widget"><div class="wt">博客数据</div><div id="mini-stats"></div></div>
-      <div class="widget"><div class="wt">文章分类</div><div id="cat-list"></div></div>
-      <div class="widget"><div class="wt">标签云</div><div class="tag-cloud" id="tag-cloud"></div></div>
-      <div class="widget">
-        <div class="wt">订阅更新</div>
-        <p class="wdesc">第一时间获取新文章。</p>
-        <input class="fi" id="email-input" type="email" placeholder="your@email.com" style="margin-bottom:8px">
-        <button class="btn-primary" style="width:100%" onclick="doSubscribe()">订阅 →</button>
-      </div>
-    </aside>
+      <button class="btn-primary" onclick="openPostCreate()" style="white-space:nowrap">✏️ 发布文章</button>
+    </div>
+    <div id="community-grid" class="posts-grid" style="margin-top:20px"></div>
+    <div id="comm-pagination" class="pagination"></div>
   </div>
 </div>
 
+<!-- ABOUT -->
 <div class="main-wrap" id="about-section">
   <div class="divider"></div>
-  <div class="section-head">
-    <div class="eyebrow">关于我</div>
-    <h2 class="section-title">创作者<em>宣言</em></h2>
-  </div>
+  <div class="section-head"><div class="eyebrow">关于我</div><h2 class="section-title">创作者<em>宣言</em></h2></div>
   <div class="about-grid">
     <div class="about-text">
       <p id="blog-about-p1">我相信，最好的文章应该像诗歌一样——精准、有力、留有余味。</p>
@@ -460,58 +498,43 @@
   </div>
 </div>
 
+<!-- FOOTER -->
 <footer>
   <div class="footer-inner">
-    <div>
-      <span class="footer-logo" id="footer-logo">Ryoko</span>
-      <p class="footer-desc" id="footer-desc">个人博客</p>
-    </div>
-    <div>
-      <p class="fh">导航</p>
-      <div class="footer-links">
-        <a onclick="window.scrollTo({top:0,behavior:'smooth'})">首页</a>
-        <a onclick="scrollTo2('posts-section')">文章</a>
-        <a onclick="scrollTo2('about-section')">关于</a>
-      </div>
-    </div>
-    <div>
-      <p class="fh">联系</p>
-      <div class="footer-links" id="footer-social"></div>
-    </div>
+    <div><span class="footer-logo" id="footer-logo">Ryoko</span><p class="footer-desc" id="footer-desc">个人博客</p></div>
+    <div><p class="fh">导航</p><div class="footer-links"><a onclick="window.scrollTo({top:0,behavior:'smooth'})">首页</a><a onclick="scrollTo2('posts-section')">文章</a><a onclick="scrollTo2('about-section')">关于</a></div></div>
+    <div><p class="fh">联系</p><div class="footer-links" id="footer-social"></div></div>
   </div>
-  <div class="footer-bottom">
-    <span id="footer-copy">© 2025 Ryoko</span>
-    <span id="footer-sub">Built with ✦ and curiosity</span>
-  </div>
+  <div class="footer-bottom"><span id="footer-copy">© 2025 Ryoko</span><span id="footer-sub">Built with ✦ and curiosity</span></div>
 </footer>
 
 <!-- POST MODAL -->
 <div id="post-modal" class="modal-overlay" onclick="closeModalBg(event)">
   <article class="modal-content">
-    <div class="modal-cover" id="modal-cover">
-      <div class="mc-aurora"></div>
-      <span class="mc-glyph" id="modal-glyph">✦</span>
-      <button class="modal-close" onclick="closeModal()">✕</button>
-    </div>
+    <div class="modal-cover" id="modal-cover"><div class="mc-aurora"></div><span class="mc-glyph" id="modal-glyph">✦</span><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
-      <div class="modal-meta">
-        <span class="post-cat" id="modal-cat"></span>
-        <time id="modal-date"></time>
-      </div>
+      <div class="modal-meta"><span class="post-cat" id="modal-cat"></span><time id="modal-date"></time></div>
       <h1 class="modal-title" id="modal-title"></h1>
-      <!-- Auto TOC -->
-      <nav id="modal-toc" class="toc-box" style="display:none">
-        <div class="toc-title">📋 目录</div>
-        <div id="toc-list"></div>
-      </nav>
+      <nav id="modal-toc" class="toc-box" style="display:none"><div class="toc-title">📋 目录</div><div id="toc-list"></div></nav>
       <div class="modal-text" id="modal-text"></div>
       <div class="modal-tags" id="modal-tags"></div>
       <hr class="modal-hr">
+      <!-- F003: Comment area (Firebase or Giscus fallback) -->
+      <div id="comment-area"></div>
       <div id="giscus-container"></div>
     </div>
   </article>
 </div>
 
+<script>
+  // Community filter helper (defined inline for simplicity)
+  function filterCommCat(cat) {
+    document.querySelectorAll('#comm-filter-bar .fbtn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+    const posts = Community.all();
+    const filtered = cat === 'all' ? posts : posts.filter(p => p.cat === cat);
+    Render.renderCommunityGrid(filtered);
+  }
+</script>
 <script src="./app.js"></script>
 </body>
 </html>

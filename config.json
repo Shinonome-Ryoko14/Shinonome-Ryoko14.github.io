@@ -1,18 +1,18 @@
 {
   "site": {
     "title": "Ryoko",
-    "description": "「在代码与幻想的边缘漫步」",
+    "description": "记录技术、设计与生活的交汇处",
     "url": "https://your-username.github.io",
     "author": "Ryoko",
-    "avatar": "RK",
-    "bio": "这里是 Ryoko\n\n热衷于编程与技术探索的学习者，主要使用 C++。\n这个博客用来记录算法题解、技术笔记以及学习过程中的一些想法。\n\n在代码与世界之间寻找属于自己的节奏。",
+    "avatar": "R",
+    "bio": "热爱技术与设计的独立创作者。",
     "lang": "zh-CN",
     "since": "2025"
   },
   "hero": {
     "line1": "Ryoko's",
     "line2": "Personal Blog",
-    "subtitle": "Welcome to the world of geeks.",
+    "subtitle": "记录技术、设计与生活的交汇处，在文字中寻找秩序与美感的平衡",
     "badge": "Personal Blog · Code and Record",
     "btn1": "开始阅读",
     "btn2": "了解我",
@@ -21,12 +21,10 @@
     "showCode": true
   },
   "theme": {
-    "preset": "cyber",
-    "font": "mono",
-    "blue": "#06b6d4",
-    "cyan": "#4f9cf9",
-    "accent": "#c8936a",
-    "sky": "#6a9eb8"
+    "preset": "geek",
+    "font": "inter",
+    "blue": "#4f9cf9",
+    "cyan": "#22d3ee"
   },
   "social": [
     {
@@ -67,63 +65,42 @@
     }
   ],
   "effects": {
-    "spotlight": true,
-    "spotlightInt": 5,
-    "aurora": true,
-    "auroraInt": 5,
-    "particles": true,
-    "particlesInt": 4,
-    "stars": true,
-    "starsInt": 4,
-    "trail": true,
-    "trailInt": 10,
-    "snow": true,
-    "snowInt": 3
+    "spotlight": false, "spotlightInt": 5,
+    "aurora":    true,  "auroraInt":    6,
+    "particles": false, "particlesInt": 4,
+    "stars":     true,  "starsInt":     4,
+    "trail":     false, "trailInt":     5,
+    "snow":      false, "snowInt":      3
   },
   "comments": {
-    "enabled": true,
-    "provider": "giscus",
-    "repo": "",
-    "repoId": "",
-    "category": "General",
-    "categoryId": "",
-    "mapping": "pathname",
-    "reactionsEnabled": "1",
-    "inputPosition": "top",
-    "theme": "dark_dimmed"
+    "enabled": false, "provider": "giscus",
+    "repo": "", "repoId": "", "category": "General", "categoryId": "",
+    "mapping": "pathname", "reactionsEnabled": "1",
+    "inputPosition": "top", "theme": "dark_dimmed"
   },
   "about": {
-    "p1": "Ryoko的Blog不仅是技术分享的地方，也是我认识世界，结识朋友的地方。",
-    "p2": "从算法技术到产品设计，从编程哲学到生活方式探索，这里是一个分享各种想法的小破站。"
+    "p1": "我相信，最好的文章应该像诗歌一样——精准、有力、留有余味。",
+    "p2": "从前端架构到用户体验设计，这里是我与世界对话的地方。"
   },
   "skills": [
-    {
-      "label": "后端开发",
-      "pct": 10
-    },
-    {
-      "label": "Algorithm",
-      "pct": 60
-    },
-    {
-      "label": "内容创作",
-      "pct": 40
-    },
-    {
-      "label": "系统架构",
-      "pct": 20
-    },
-    {
-      "label": "C++",
-      "pct": 75
-    }
+    {"label":"前端开发","pct":92},{"label":"UI/UX 设计","pct":84},
+    {"label":"内容创作","pct":88},{"label":"系统架构","pct":76}
   ],
   "footer": {
-    "copy": "© 2026 Ryoko. All rights reserved.",
-    "sub": "Infinite Progress ✦"
+    "copy": "© 2025 Ryoko. All rights reserved.",
+    "sub":  "Built with ✦ and curiosity"
   },
   "auth": {
-    "passwordHash": "040783b79e884dd4dec9dafb12ad99450c8cd495a7aaae5c32e9b7df524763c9",
-    "hint": "在管理后台「修改密码」后下载新的 config.json 并提交到 GitHub"
+    "passwordHash": "5137f70d806a6e6786959e855e17c21f3ca2ff17d5ca2dbe1eaf1ec4e8db0c59",
+    "hint": "ryoko2025 — 在管理后台修改密码后导出此文件提交到 GitHub"
+  },
+  "firebase": {
+    "_comment": "在 https://console.firebase.google.com 创建项目后填入以下字段",
+    "apiKey":            "YOUR_API_KEY",
+    "authDomain":        "YOUR_PROJECT.firebaseapp.com",
+    "projectId":         "YOUR_PROJECT_ID",
+    "storageBucket":     "YOUR_PROJECT.appspot.com",
+    "messagingSenderId": "YOUR_SENDER_ID",
+    "appId":             "YOUR_APP_ID"
   }
 }
