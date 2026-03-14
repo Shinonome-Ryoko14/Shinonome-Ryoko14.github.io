@@ -70,7 +70,7 @@
         <div class="anav" data-panel="tools"><span>⚙</span>工具箱</div>
         <div class="anav" data-panel="password"><span>✦</span>修改密码</div>
       </nav>
-      <div class="admin-exit" onclick="exitAdmin()">← 返回博客</div>
+      <div class="admin-exit" onclick="exitAdmin()">← 返回博客 &amp; 预览效果</div>
     </aside>
     <main class="admin-main" id="admin-main">
 
@@ -184,6 +184,12 @@
 
       <section class="apanel" id="panel-effects">
         <h2 class="atitle">特效管理</h2><p class="asub">开关实时生效，保存后持久化</p>
+        <div id="fx-hint" style="display:none;margin-bottom:16px;padding:12px 16px;background:rgba(79,156,249,0.1);border:1px solid rgba(79,156,249,0.3);border-radius:8px;font-size:13px;color:var(--text2);line-height:1.7">
+          💡 <strong style="color:var(--blue)">如何预览特效</strong>：<br>
+          ① 在这里开启特效并保存<br>
+          ② 点击左下角「← 返回博客」即可看到效果<br>
+          ③ 粒子/星尘/拖尾/雪花 全页可见；极光只在 Hero 顶部区域
+        </div>
         <div class="fx-grid" id="fx-grid"></div>
         <button class="btn-primary" style="margin-top:20px" onclick="saveEffects()">保存特效设置</button>
       </section>

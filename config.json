@@ -21,21 +21,36 @@
     "showCode": false
   },
   "theme": {
-    "preset": "warm",
+    "preset": "geek",
     "font": "inter",
-    "accent": "#c8936a",
-    "sky": "#6a9eb8"
+    "blue": "#4f9cf9",
+    "cyan": "#22d3ee"
   },
   "social": [
-    { "type": "GitHub",    "label": "GitHub",    "url": "https://github.com",         "icon": "🐙" },
-    { "type": "Twitter",   "label": "Twitter",   "url": "https://twitter.com",        "icon": "🐦" },
-    { "type": "Email",     "label": "邮件",       "url": "mailto:hello@example.com",   "icon": "✉️" }
+    {
+      "type": "GitHub",
+      "label": "GitHub",
+      "url": "https://github.com",
+      "icon": "🐙"
+    },
+    {
+      "type": "Twitter",
+      "label": "Twitter",
+      "url": "https://twitter.com",
+      "icon": "🐦"
+    },
+    {
+      "type": "Email",
+      "label": "邮件",
+      "url": "mailto:hello@example.com",
+      "icon": "✉️"
+    }
   ],
   "effects": {
     "spotlight": false,
     "spotlightInt": 5,
-    "aurora": false,
-    "auroraInt": 5,
+    "aurora": true,
+    "auroraInt": 6,
     "particles": false,
     "particlesInt": 4,
     "stars": false,
@@ -62,10 +77,22 @@
     "p2": "从前端架构到用户体验设计，从编程哲学到生活方式探索，这里是我与世界对话的地方。"
   },
   "skills": [
-    { "label": "前端开发",  "pct": 92 },
-    { "label": "UI/UX 设计", "pct": 84 },
-    { "label": "内容创作",  "pct": 88 },
-    { "label": "系统架构",  "pct": 76 }
+    {
+      "label": "前端开发",
+      "pct": 92
+    },
+    {
+      "label": "UI/UX 设计",
+      "pct": 84
+    },
+    {
+      "label": "内容创作",
+      "pct": 88
+    },
+    {
+      "label": "系统架构",
+      "pct": 76
+    }
   ],
   "footer": {
     "copy": "© 2025 Ryoko. All rights reserved.",

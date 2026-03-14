@@ -531,7 +531,14 @@ const Admin = (() => {
   };
   const exit = () => {
     $('admin-overlay').classList.remove('vis');
-    // Keep login state hidden; will reset on next open()
+    // ── Re-apply ALL settings to the live blog DOM after admin closes ──
+    // This ensures whatever was saved is immediately visible.
+    Render.applyConfig(Config.all());
+    FX.applyAll(Config.get('effects') || {});
+    Theme.apply(Config.get('theme') || {});
+    SEO.update(Config.all());
+    // Scroll to top so user can see hero changes (aurora, title, etc.)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const refresh = () => switchPanel('dashboard');
 
@@ -636,6 +643,9 @@ const Admin = (() => {
   ];
   const loadFxForm = () => {
     const fx=Config.get('effects')||{};
+    // Show hint about how to see effects
+    const hint = document.getElementById('fx-hint');
+    if (hint) hint.style.display = 'block';
     $('fx-grid').innerHTML=FX_DEFS.map(f=>`<div class="fx-card"><div class="fx-head"><div><div class="fx-name">${f.icon} ${f.name}</div><div class="fx-desc">${f.desc}</div></div><label class="tgl-label" style="flex-shrink:0"><input type="checkbox" class="tgl-cb" id="fx-${f.key}" ${fx[f.key]?'checked':''} onchange="Admin.liveFx('${f.key}',this.checked)"></label></div><div class="fx-rl">强度</div><input type="range" class="fx-r" id="fx-int-${f.key}" min="1" max="10" value="${fx[f.ik]||5}" oninput="Admin.liveFxInt('${f.ik}',+this.value)"></div>`).join('');
   };
   // FIX B+G: update cfg immediately so re-opening panel doesn't reset state;
@@ -650,7 +660,7 @@ const Admin = (() => {
   const saveEffects = () => {
     const fx={};
     FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);});
-    Config.saveSection('effects',fx); FX.applyAll(fx); toast('✅ 特效设置已保存');
+    Config.saveSection('effects',fx); FX.applyAll(fx); Render.applyConfig(Config.all()); toast('✅ 特效已保存 — 关闭后台后可在博客看到效果');
   };
 
   /* Contact */
@@ -673,7 +683,7 @@ const Admin = (() => {
     contacts.forEach(c=>{c.icon=CI[c.type]||'🔗';});
     Config.saveSection('social',contacts);
     Config.saveSection('about',{p1:$('about-p1')?.value||'',p2:$('about-p2')?.value||''});
-    Render.applyConfig(Config.all()); toast('✅ 联系方式已保存');
+    Render.applyConfig(Config.all()); Render.renderPosts(Posts.all()); toast('✅ 联系方式已保存');
   };
 
   /* Profile */
@@ -720,7 +730,7 @@ const Admin = (() => {
   const applyPreset=(label,blue,cyan,el)=>{document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));el.classList.add('active');$('t-c1').value=blue;$('t-c2').value=cyan;previewColor('blue',blue);previewColor('cyan',cyan);Config.save('theme.preset',label);};
   const pickFont=(id,el)=>{pFont=id;document.querySelectorAll('.font-opt').forEach(f=>f.classList.remove('sel'));el.classList.add('sel');};
   const previewColor=(k,v)=>document.documentElement.style.setProperty('--'+k,v);
-  const saveTheme=()=>{const t={...Config.get('theme'),blue:$('t-c1').value,cyan:$('t-c2').value};Config.saveSection('theme',t);Theme.apply(t);toast('✅ 配色已保存');};
+  const saveTheme=()=>{const t={...Config.get('theme'),blue:$('t-c1').value,cyan:$('t-c2').value};Config.saveSection('theme',t);Theme.apply(t);Render.applyConfig(Config.all());toast('✅ 配色已保存');};
   const saveFont=()=>{if(!pFont){toast('⚠️ 请先选择字体');return;}const t={...Config.get('theme'),font:pFont};Config.saveSection('theme',t);Theme.apply(t);toast('✅ 字体已应用');};
 
   /* Tools */
