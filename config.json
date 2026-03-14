@@ -1,0 +1,74 @@
+{
+  "site": {
+    "title": "Ryoko",
+    "description": "记录技术、设计与生活的交汇处，在文字中寻找秩序与美感的平衡",
+    "url": "https://your-username.github.io",
+    "author": "Ryoko",
+    "avatar": "R",
+    "bio": "热爱技术与设计的独立创作者，在代码与文字间寻找灵感，探索数字世界的无限边界。",
+    "lang": "zh-CN",
+    "since": "2025"
+  },
+  "hero": {
+    "line1": "探索",
+    "line2": "无限可能",
+    "subtitle": "记录技术、设计与生活的交汇处，在文字中寻找秩序与美感的平衡",
+    "badge": "个人博客 · 思想实验室",
+    "btn1": "开始阅读",
+    "btn2": "了解我",
+    "bgImage": "",
+    "bgOpacity": 0.5,
+    "showCode": false
+  },
+  "theme": {
+    "preset": "warm",
+    "font": "inter",
+    "accent": "#c8936a",
+    "sky": "#6a9eb8"
+  },
+  "social": [
+    { "type": "GitHub",    "label": "GitHub",    "url": "https://github.com",         "icon": "🐙" },
+    { "type": "Twitter",   "label": "Twitter",   "url": "https://twitter.com",        "icon": "🐦" },
+    { "type": "Email",     "label": "邮件",       "url": "mailto:hello@example.com",   "icon": "✉️" }
+  ],
+  "effects": {
+    "spotlight": false,
+    "spotlightInt": 5,
+    "aurora": false,
+    "auroraInt": 5,
+    "particles": false,
+    "particlesInt": 4,
+    "stars": false,
+    "starsInt": 4,
+    "trail": false,
+    "trailInt": 5,
+    "snow": false,
+    "snowInt": 3
+  },
+  "comments": {
+    "enabled": false,
+    "provider": "giscus",
+    "repo": "",
+    "repoId": "",
+    "category": "General",
+    "categoryId": "",
+    "mapping": "pathname",
+    "reactionsEnabled": "1",
+    "inputPosition": "top",
+    "theme": "dark_dimmed"
+  },
+  "about": {
+    "p1": "我相信，最好的文章应该像诗歌一样——精准、有力、留有余味。在这个信息过载的时代，每一篇文章都值得你花时间阅读。",
+    "p2": "从前端架构到用户体验设计，从编程哲学到生活方式探索，这里是我与世界对话的地方。"
+  },
+  "skills": [
+    { "label": "前端开发",  "pct": 92 },
+    { "label": "UI/UX 设计", "pct": 84 },
+    { "label": "内容创作",  "pct": 88 },
+    { "label": "系统架构",  "pct": 76 }
+  ],
+  "footer": {
+    "copy": "© 2025 Ryoko. All rights reserved.",
+    "sub": "Handcrafted with care ✦"
+  }
+}
