@@ -14,7 +14,10 @@ const Store = (() => {
   return { get, set, del };
 })();
 
-/* ── CONFIG ── */
+/* ── CONFIG ──
+   FIX A: in-memory cfg = single source of truth.
+   save() / saveSection() always write from cfg, never re-read stale localStorage.
+   FIX G: Store.set writes the FULL cfg so all fields (checkbox + slider) persist atomically. */
 const Config = (() => {
   const DEFAULTS = {
     site:     { title:'Ryoko', description:'个人博客', url:'', author:'Ryoko', avatar:'R', bio:'热爱技术与设计的独立创作者。', lang:'zh-CN', since:'2025' },
@@ -28,22 +31,53 @@ const Config = (() => {
     footer:   { copy:'© 2025 Ryoko. All rights reserved.', sub:'Built with ✦ and curiosity' },
   };
   let cfg = {};
-  const deep = (a, b) => { const o = {...a}; if (!b) return o; for (const k of Object.keys(b)) { if (b[k] && typeof b[k]==='object' && !Array.isArray(b[k])) o[k] = deep(a[k]||{}, b[k]); else o[k] = b[k]; } return o; };
+  const deep = (a, b) => {
+    const o = {...a}; if (!b) return o;
+    for (const k of Object.keys(b)) {
+      if (b[k] && typeof b[k]==='object' && !Array.isArray(b[k])) o[k] = deep(a[k]||{}, b[k]);
+      else o[k] = b[k];
+    }
+    return o;
+  };
+
+  // Persist the FULL in-memory cfg to localStorage (atomic, no staleness)
+  const _persist = () => Store.set('cfg', cfg);
+
   const load = async () => {
     let fileCfg = {};
     try { const r = await fetch('./config.json?t='+Date.now()); if (r.ok) fileCfg = await r.json(); } catch {}
-    cfg = deep(deep(DEFAULTS, fileCfg), Store.get('cfg', {}));
+    // Priority: localStorage saved cfg > config.json > DEFAULTS
+    const stored = Store.get('cfg', null);
+    if (stored) {
+      // Merge: keep stored values but fill in any new DEFAULTS keys
+      cfg = deep(deep(DEFAULTS, fileCfg), stored);
+    } else {
+      cfg = deep(DEFAULTS, fileCfg);
+    }
     return cfg;
   };
-  const get   = (path) => { let v = cfg; for (const p of path.split('.')) v = v?.[p]; return v; };
-  const save  = (path, val) => {
-    const s = Store.get('cfg', {}); const parts = path.split('.'); let n = s;
-    for (let i = 0; i < parts.length-1; i++) { if (!n[parts[i]]) n[parts[i]] = {}; n = n[parts[i]]; }
-    n[parts[parts.length-1]] = val; Store.set('cfg', s);
-    let cn = cfg; for (let i = 0; i < parts.length-1; i++) { if (!cn[parts[i]]) cn[parts[i]] = {}; cn = cn[parts[i]]; }
-    cn[parts[parts.length-1]] = val;
+
+  // Read a dot-path from in-memory cfg (e.g. 'site.url')
+  const get = (path) => { let v = cfg; for (const p of path.split('.')) v = v?.[p]; return v; };
+
+  // FIX A: write a single value into in-memory cfg, then persist the whole cfg
+  const save = (path, val) => {
+    const parts = path.split('.');
+    let node = cfg;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!node[parts[i]] || typeof node[parts[i]] !== 'object') node[parts[i]] = {};
+      node = node[parts[i]];
+    }
+    node[parts[parts.length - 1]] = val;
+    _persist(); // write full cfg — no staleness possible
   };
-  const saveSection = (sec, obj) => { const s = Store.get('cfg', {}); s[sec] = obj; Store.set('cfg', s); cfg[sec] = obj; };
+
+  // Replace an entire section, then persist
+  const saveSection = (sec, obj) => {
+    cfg[sec] = obj;
+    _persist();
+  };
+
   const all = () => cfg;
   return { load, get, save, saveSection, all };
 })();
@@ -121,9 +155,13 @@ const Theme = (() => {
 /* ── EFFECTS ── */
 const FX = (() => {
   const loops = {};
+  // FIX C: track the mousemove handler so we can remove it; guard against double-init
+  let _spHandler = null;
   const initSpotlight = () => {
+    if (_spHandler) return; // already running — don't add another listener
     let cx=-9999,cy=-9999,tx=-9999,ty=-9999;
-    document.addEventListener('mousemove',e=>{tx=e.clientX;ty=e.clientY;});
+    _spHandler = e => { tx=e.clientX; ty=e.clientY; };
+    document.addEventListener('mousemove', _spHandler);
     const fr = () => {
       cx+=(tx-cx)*.04; cy+=(ty-cy)*.04;
       document.getElementById('spotlight').style.setProperty('--sx',cx+'px');
@@ -134,9 +172,20 @@ const FX = (() => {
     };
     loops._sp = requestAnimationFrame(fr);
   };
-  const stopSpotlight = () => { cancelAnimationFrame(loops._sp); ['spotlight','dot-grid'].forEach(id=>{ const e=document.getElementById(id); if(e){e.style.setProperty('--sx','-9999px');e.style.setProperty('--sy','-9999px');} }); };
+  const stopSpotlight = () => {
+    cancelAnimationFrame(loops._sp);
+    if (_spHandler) { document.removeEventListener('mousemove', _spHandler); _spHandler = null; }
+    ['spotlight','dot-grid'].forEach(id=>{ const e=document.getElementById(id); if(e){e.style.setProperty('--sx','-9999px');e.style.setProperty('--sy','-9999px');} });
+  };
   const makeCv = id => { const cv=document.getElementById(id); cv.style.display='block'; cv.width=innerWidth; cv.height=innerHeight; return cv; };
-  const stopFx = name => { cancelAnimationFrame(loops[name]); delete loops[name]; const cv=document.getElementById('cv-'+name); if(cv)cv.style.display='none'; };
+  const stopFx = name => {
+    cancelAnimationFrame(loops[name]); delete loops[name];
+    // FIX D: remove trail mousemove listener when trail is stopped
+    if (name === 'trail' && _trailHandler) {
+      document.removeEventListener('mousemove', _trailHandler); _trailHandler = null;
+    }
+    const cv=document.getElementById('cv-'+name); if(cv)cv.style.display='none';
+  };
 
   const startParticles = (int=5) => {
     const cv=makeCv('cv-particles'),ctx=cv.getContext('2d'),C=['79,156,249','34,211,238','249,115,22','244,114,182'];
@@ -156,9 +205,13 @@ const FX = (() => {
     const fr=()=>{ctx.clearRect(0,0,cv.width,cv.height);stars.forEach(s=>{s.a+=s.da;if(s.a>1||s.a<.05)s.da*=-1;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(180,185,220,${s.a*.7})`;ctx.fill();});loops.stars=requestAnimationFrame(fr);};
     fr();
   };
+  // FIX D: trail listener also tracked for cleanup on stopFx
+  let _trailHandler = null;
   const startTrail = (int=5) => {
+    if (_trailHandler) { document.removeEventListener('mousemove', _trailHandler); _trailHandler = null; }
     const cv=makeCv('cv-trail'),ctx=cv.getContext('2d'); let pts=[];
-    document.addEventListener('mousemove',e=>pts.push({x:e.clientX,y:e.clientY,a:1}));
+    _trailHandler = e => pts.push({x:e.clientX,y:e.clientY,a:1});
+    document.addEventListener('mousemove', _trailHandler);
     const max=Math.round(int*18);
     const fr=()=>{
       ctx.clearRect(0,0,cv.width,cv.height);
@@ -175,14 +228,20 @@ const FX = (() => {
     const fr=()=>{ctx.clearRect(0,0,cv.width,cv.height);fl.forEach(f=>{f.y+=f.vy;f.sw+=f.ss;f.x+=Math.sin(f.sw)*.7+f.vx;if(f.y>cv.height+10)Object.assign(f,mk());ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,210,255,${f.a})`;ctx.fill();});loops.snow=requestAnimationFrame(fr);};
     fr();
   };
+  // FIX E: stop ALL canvas effects before restarting to prevent double animation loops
   const applyAll = fx => {
-    if(fx.spotlight) initSpotlight(); else stopSpotlight();
-    const aw=document.getElementById('aurora-wrap');
-    if(aw) aw.style.opacity=fx.aurora?((fx.auroraInt||5)/10)*1.6:0;
-    if(fx.particles) startParticles(fx.particlesInt||4); else stopFx('particles');
-    if(fx.stars)     startStars(fx.starsInt||4);         else stopFx('stars');
-    if(fx.trail)     startTrail(fx.trailInt||5);         else stopFx('trail');
-    if(fx.snow)      startSnow(fx.snowInt||3);           else stopFx('snow');
+    // Always stop canvas effects first
+    ['particles','stars','trail','snow'].forEach(n => stopFx(n));
+    // Spotlight
+    if (fx.spotlight) initSpotlight(); else stopSpotlight();
+    // Aurora opacity
+    const aw = document.getElementById('aurora-wrap');
+    if (aw) aw.style.opacity = fx.aurora ? ((fx.auroraInt||5)/10)*1.6 : 0;
+    // Canvas effects — safe to start fresh since we stopped above
+    if (fx.particles) startParticles(fx.particlesInt||4);
+    if (fx.stars)     startStars(fx.starsInt||4);
+    if (fx.trail)     startTrail(fx.trailInt||5);
+    if (fx.snow)      startSnow(fx.snowInt||3);
   };
   const toggle = (name, on, int) => {
     if(name==='spotlight'){on?initSpotlight():stopSpotlight();return;}
@@ -579,8 +638,15 @@ const Admin = (() => {
     const fx=Config.get('effects')||{};
     $('fx-grid').innerHTML=FX_DEFS.map(f=>`<div class="fx-card"><div class="fx-head"><div><div class="fx-name">${f.icon} ${f.name}</div><div class="fx-desc">${f.desc}</div></div><label class="tgl-label" style="flex-shrink:0"><input type="checkbox" class="tgl-cb" id="fx-${f.key}" ${fx[f.key]?'checked':''} onchange="Admin.liveFx('${f.key}',this.checked)"></label></div><div class="fx-rl">强度</div><input type="range" class="fx-r" id="fx-int-${f.key}" min="1" max="10" value="${fx[f.ik]||5}" oninput="Admin.liveFxInt('${f.ik}',+this.value)"></div>`).join('');
   };
-  const liveFx    = (k,on)  => FX.toggle(k,on,+($('fx-int-'+k)?.value||5));
-  const liveFxInt = (ik,v)  => Config.save('effects.'+ik,v);
+  // FIX B+G: update cfg immediately so re-opening panel doesn't reset state;
+  // auto-persist so closing without "保存" still keeps the change.
+  const liveFx = (k, on) => {
+    Config.save('effects.' + k, on);          // persist checkbox state NOW
+    FX.toggle(k, on, +($('fx-int-'+k)?.value||5));
+  };
+  const liveFxInt = (ik, v) => {
+    Config.save('effects.' + ik, v);           // already persisted — no change needed
+  };
   const saveEffects = () => {
     const fx={};
     FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);});
@@ -617,6 +683,7 @@ const Admin = (() => {
     const sv=(id,v)=>{const e=$(id);if(e)e.value=v||'';};
     sv('p-av',s.avatar); sv('p-name',s.author); sv('p-bio',s.bio);
     sv('p-blog-name',s.title); sv('p-blog-sub',s.description);
+    sv('p-site-url',s.url);   // FIX F: populate URL field
     sv('p-footer-copy',f.copy); sv('p-footer-sub',f.sub);
     const ap=$('admin-av-preview'); if(ap) ap.textContent=s.avatar||'R';
     skills=JSON.parse(JSON.stringify(Config.get('skills')||[])); renderSE();
@@ -629,7 +696,15 @@ const Admin = (() => {
   const addSkill=()=>{skills.push({label:'新技能',pct:80});renderSE();};
   const saveSkills=()=>{Config.saveSection('skills',skills);Render.renderSkills(skills);toast('✅ 技能条已保存');};
   const saveProfile=()=>{
-    Config.saveSection('site',{...Config.get('site'),avatar:$('p-av').value.trim()||'R',author:$('p-name').value.trim(),bio:$('p-bio').value.trim(),title:$('p-blog-name').value.trim()||'Ryoko',description:$('p-blog-sub').value.trim()});
+    Config.saveSection('site',{
+      ...Config.get('site'),
+      avatar:      $('p-av').value.trim()||'R',
+      author:      $('p-name').value.trim(),
+      bio:         $('p-bio').value.trim(),
+      title:       $('p-blog-name').value.trim()||'Ryoko',
+      description: $('p-blog-sub').value.trim(),
+      url:         $('p-site-url').value.trim(), // FIX F: save URL
+    });
     Config.saveSection('footer',{copy:$('p-footer-copy').value.trim(),sub:$('p-footer-sub').value.trim()});
     SEO.update(Config.all()); Render.applyConfig(Config.all()); toast('✅ 博主信息已保存');
   };
