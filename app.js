@@ -361,7 +361,7 @@ const Render = (() => {
     const av=s.avatar||s.title.charAt(0);
     ['sidebar-av','orbit-av'].forEach(id=>tx(id,av));
     tx('sidebar-name', s.author); tx('sidebar-bio', s.bio);
-    tx('about-p1', (cfg.about||{}).p1||''); tx('about-p2', (cfg.about||{}).p2||'');
+    tx('blog-about-p1', (cfg.about||{}).p1||''); tx('blog-about-p2', (cfg.about||{}).p2||'');
     renderSocial(cfg.social||[]);
     renderSkills(cfg.skills||[]);
   };
@@ -394,7 +394,7 @@ const Render = (() => {
 
   const card = (p, feat) => `
     <div class="post-card${feat?' featured':''}" onclick="openPost('${p.id}')">
-      <div class="post-thumb ${p.cover?.style||'cv1'}">
+      <div class="post-thumb ${(p.cover?.style||'cv1').replace('cover-','cv')}">
         <div class="pta"></div><div class="ptg">${p.cover?.glyph||'✦'}</div>
       </div>
       <div class="post-body">
@@ -429,7 +429,7 @@ const Render = (() => {
 
   /* Modal */
   const openModal = post => {
-    const cv=post.cover?.style||'cv1';
+    const raw=post.cover?.style||'cv1'; const cv=raw.replace('cover-','cv');
     const mc=$('modal-cover'); if(mc) mc.className=`modal-cover ${cv}`;
     const mca=mc?.querySelector('.mc-aurora'); if(mca) mca.style='';
     $('modal-glyph').textContent = post.cover?.glyph||'✦';
@@ -851,6 +851,16 @@ document.addEventListener('keydown', e=>{
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.anav').forEach(el=>el.addEventListener('click',()=>Admin.switchPanel(el.dataset.panel)));
   document.querySelectorAll('.fbtn').forEach(btn=>btn.addEventListener('click',()=>filterByCat(btn.dataset.cat)));
+
+  // BUG 1 FIX: guarantee post grid is rendered after DOM is fully ready.
+  // The async IIFE may have already called renderPosts, but if anything
+  // raced or cleared the grid, this ensures a second pass runs once.
+  // Using requestAnimationFrame so it runs AFTER the current paint cycle.
+  requestAnimationFrame(() => {
+    if (Posts.all().length > 0 && document.getElementById('posts-grid')) {
+      Render.renderPosts(Posts.all(), curCat, curPage);
+    }
+  });
 });
 
 /* ── INIT ── */
