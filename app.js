@@ -1,7 +1,7 @@
 /**
  * RYOKO BLOG — app.js v9
- * Modules: Store | Config | Posts | Stats | FB | Auth | Community
- *          Comments | Social | Announce | Theme | FX | MD | TOC
+ * Modules: Store | Config | Posts | Stats | FB | Auth
+ *          Announce | Theme | FX | MD | TOC
  *          SEO | Tools | Render | Admin
  */
 'use strict';
@@ -29,11 +29,10 @@ const Config = (() => {
     theme:    { preset:'geek', font:'inter', blue:'#4f9cf9', cyan:'#22d3ee' },
     social:   [],
     effects:  { spotlight:false,spotlightInt:5,aurora:true,auroraInt:6,particles:false,particlesInt:4,stars:true,starsInt:4,trail:false,trailInt:5,snow:false,snowInt:3 },
-    comments: { enabled:false,provider:'giscus',repo:'',repoId:'',category:'General',categoryId:'',mapping:'pathname',reactionsEnabled:'1',inputPosition:'top',theme:'dark_dimmed' },
     about:    { p1:'我相信，最好的文章应该像诗歌一样——精准、有力、留有余味。', p2:'这里是我与世界对话的地方。' },
     skills:   [{label:'前端开发',pct:92},{label:'UI/UX 设计',pct:84},{label:'内容创作',pct:88},{label:'系统架构',pct:76}],
     footer:   { copy:'© 2025 Ryoko. All rights reserved.', sub:'Built with ✦ and curiosity' },
-    auth:     { passwordHash:'5137f70d806a6e6786959e855e17c21f3ca2ff17d5ca2dbe1eaf1ec4e8db0c59' },
+    auth:     { adminEmail:'', adminPath:'manage-ryoko' },
     firebase: { apiKey:'', authDomain:'', projectId:'', storageBucket:'', messagingSenderId:'', appId:'' },
   };
   let cfg = {};
@@ -45,17 +44,24 @@ const Config = (() => {
     }
     return o;
   };
-  const _persist = () => {
-    Store.set('cfg', cfg);
-    const ind = document.getElementById('sync-indicator');
-    if (ind) ind.style.display = 'block';
-  };
   const load = async () => {
     let fileCfg = {};
     try { const r = await fetch('./config.json?t='+Date.now()); if (r.ok) fileCfg = await r.json(); } catch {}
-    const stored = Store.get('cfg', null);
-    cfg = stored ? deep(deep(DEFAULTS, fileCfg), stored) : deep(DEFAULTS, fileCfg);
+    cfg = deep(DEFAULTS, fileCfg);
     return cfg;
+  };
+  const hydrateRemote = async () => {
+    if (!FB.isReady()) return cfg;
+    try {
+      const snap = await FB.docRef('site_config', 'main').get();
+      if (snap.exists) cfg = deep(cfg, snap.data());
+    } catch {}
+    return cfg;
+  };
+  const persist = async () => {
+    if (!FB.isReady() || !Auth.isLoggedIn() || !Auth.isAdmin()) return false;
+    await FB.docRef('site_config', 'main').set({ ...cfg }, { merge: true });
+    return true;
   };
   const get = path => { let v = cfg; for (const p of path.split('.')) v = v?.[p]; return v; };
   const save = (path, val) => {
@@ -63,13 +69,11 @@ const Config = (() => {
     let node = cfg;
     for (let i = 0; i < parts.length-1; i++) { if (!node[parts[i]]||typeof node[parts[i]]!=='object') node[parts[i]]= {}; node = node[parts[i]]; }
     node[parts[parts.length-1]] = val;
-    _persist();
+    return persist();
   };
-  const saveSection = (sec, obj) => { cfg[sec] = obj; _persist(); };
+  const saveSection = (sec, obj) => { cfg[sec] = obj; return persist(); };
   const all  = () => cfg;
-  const getPasswordHash = () => cfg?.auth?.passwordHash || '';
-  const setPasswordHash = hash => { if (!cfg.auth) cfg.auth={}; cfg.auth.passwordHash = hash; };
-  return { load, get, save, saveSection, all, getPasswordHash, setPasswordHash };
+  return { load, hydrateRemote, persist, get, save, saveSection, all };
 })();
 
 /* ── POSTS (B001 FIX: always fetch posts.json) ── */
@@ -152,193 +156,20 @@ const Auth = (() => {
 
   const init = () => {
     if (!FB.isReady()) return;
-    FB.auth().onAuthStateChanged(async fbUser => {
-      if (fbUser) {
-        _user = { uid:fbUser.uid, email:fbUser.email, displayName:fbUser.displayName||'用户' };
-        try {
-          const snap = await FB.docRef('users', fbUser.uid).get();
-          if (snap.exists) Object.assign(_user, snap.data());
-        } catch {}
-      } else {
-        _user = null;
-      }
+    FB.auth().onAuthStateChanged(fbUser => {
+      _user = fbUser ? { uid:fbUser.uid, email:fbUser.email, displayName:fbUser.displayName||'管理员' } : null;
       _notify();
     });
   };
 
-  const register = async (email, pwd, username) => {
-    const cred = await FB.auth().createUserWithEmailAndPassword(email, pwd);
-    await cred.user.updateProfile({ displayName: username });
-    await FB.docRef('users', cred.user.uid).set({
-      uid: cred.user.uid, username, email,
-      avatar: username.charAt(0).toUpperCase(),
-      bio: '', following: [], createdAt: FB.TS()
-    });
-    return cred.user;
-  };
-
-  const login   = (email, pwd) => FB.auth().signInWithEmailAndPassword(email, pwd);
+  const login = (email, pwd) => FB.auth().signInWithEmailAndPassword(email, pwd);
   const logout  = () => FB.auth().signOut();
   const user    = () => _user;
   const uid     = () => _user?.uid;
-  const isAdmin = () => Config.get('site.author') && _user?.username === Config.get('site.author');
+  const isAdmin = () => _user?.email && _user.email === Config.get('auth.adminEmail');
   const isLoggedIn = () => !!_user;
 
-  return { init, onChange, register, login, logout, user, uid, isAdmin, isLoggedIn };
-})();
-
-/* ════════════════════════════════════════════════
-   COMMUNITY (F002 - public posts from all users)
-════════════════════════════════════════════════ */
-const Community = (() => {
-  let _posts = [];
-  let _unsub  = null;
-
-  const CAT_MAP = { tech:'技术', design:'设计', life:'生活', think:'思考', other:'其他' };
-
-  const listen = (cb) => {
-    if (!FB.isReady()) return;
-    if (_unsub) _unsub();
-    _unsub = FB.col('community_posts')
-      .orderBy('createdAt','desc')
-      .limit(50)
-      .onSnapshot(snap => {
-        _posts = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-        if (cb) cb(_posts);
-      }, err => console.warn('Community listen:', err));
-  };
-
-  const create = async ({ title, content, excerpt, tags, cat, format }) => {
-    if (!Auth.isLoggedIn()) throw new Error('请先登录');
-    const u = Auth.user();
-    const ref = await FB.col('community_posts').add({
-      title, content, excerpt: excerpt || content.slice(0,120).replace(/<[^>]*>/g,''),
-      tags: tags || [], cat: cat||'other', format: format||'markdown',
-      authorId: u.uid, authorName: u.username || u.displayName,
-      authorAvatar: u.avatar || u.displayName?.charAt(0) || 'U',
-      likes: [], likeCount: 0, commentCount: 0,
-      cover: { style: 'cv'+(Math.floor(Math.random()*5)+1), glyph: '✦' },
-      createdAt: FB.TS(), updatedAt: FB.TS()
-    });
-    return ref.id;
-  };
-
-  const remove = async id => {
-    const doc = await FB.docRef('community_posts', id).get();
-    if (!doc.exists) return;
-    const d = doc.data();
-    if (d.authorId !== Auth.uid() && !Auth.isAdmin()) throw new Error('无权删除');
-    await FB.docRef('community_posts', id).delete();
-  };
-
-  const toggleLike = async id => {
-    if (!Auth.isLoggedIn()) { openAuthModal(); return; }
-    const uid = Auth.uid();
-    const ref = FB.docRef('community_posts', id);
-    const snap = await ref.get();
-    if (!snap.exists) return;
-    const likes = snap.data().likes || [];
-    if (likes.includes(uid)) {
-      await ref.update({ likes: FB.arrRemove(uid), likeCount: FB.incr(-1) });
-    } else {
-      await ref.update({ likes: FB.arrUnion(uid), likeCount: FB.incr(1) });
-    }
-  };
-
-  const all      = () => _posts;
-  const catLabel = c => CAT_MAP[c] || c;
-  return { listen, create, remove, toggleLike, all, catLabel };
-})();
-
-/* ════════════════════════════════════════════════
-   COMMENTS  (F003)
-════════════════════════════════════════════════ */
-const Comments = (() => {
-  let _unsub = null;
-
-  const listen = (postId, postType, cb) => {
-    if (!FB.isReady()) return;
-    if (_unsub) { _unsub(); _unsub = null; }
-    _unsub = FB.col('comments')
-      .where('postId', '==', postId)
-      .where('postType', '==', postType)
-      .orderBy('createdAt', 'asc')
-      .onSnapshot(snap => {
-        const comments = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-        cb(comments);
-      }, err => console.warn('Comments listen:', err));
-  };
-
-  const stopListen = () => { if (_unsub) { _unsub(); _unsub = null; } };
-
-  const add = async (postId, postType, content, parentId=null) => {
-    if (!Auth.isLoggedIn()) { openAuthModal(); return; }
-    if (!content.trim()) return;
-    const u = Auth.user();
-    await FB.col('comments').add({
-      postId, postType, parentId,
-      content: content.trim(),
-      authorId: u.uid, authorName: u.username||u.displayName,
-      authorAvatar: u.avatar||u.displayName?.charAt(0)||'U',
-      likes: [], likeCount: 0,
-      createdAt: FB.TS()
-    });
-    // Update comment count
-    const countRef = postType === 'community'
-      ? FB.docRef('community_posts', postId)
-      : null;
-    if (countRef) await countRef.update({ commentCount: FB.incr(1) });
-  };
-
-  const remove = async id => {
-    const snap = await FB.docRef('comments', id).get();
-    if (!snap.exists) return;
-    if (snap.data().authorId !== Auth.uid() && !Auth.isAdmin()) throw new Error('无权删除');
-    await FB.docRef('comments', id).delete();
-  };
-
-  const toggleLike = async id => {
-    if (!Auth.isLoggedIn()) { openAuthModal(); return; }
-    const uid = Auth.uid();
-    const ref = FB.docRef('comments', id);
-    const snap = await ref.get();
-    if (!snap.exists) return;
-    const likes = snap.data().likes || [];
-    if (likes.includes(uid)) {
-      await ref.update({ likes: FB.arrRemove(uid), likeCount: FB.incr(-1) });
-    } else {
-      await ref.update({ likes: FB.arrUnion(uid), likeCount: FB.incr(1) });
-    }
-  };
-
-  return { listen, stopListen, add, remove, toggleLike };
-})();
-
-/* ════════════════════════════════════════════════
-   SOCIAL (F004 - likes & follows)
-════════════════════════════════════════════════ */
-const Social = (() => {
-  const follow = async (targetUid) => {
-    if (!Auth.isLoggedIn()) { openAuthModal(); return; }
-    const myRef  = FB.docRef('users', Auth.uid());
-    const themRef = FB.docRef('users', targetUid);
-    const snap = await myRef.get();
-    const following = snap.data()?.following || [];
-    if (following.includes(targetUid)) {
-      await myRef.update({ following: FB.arrRemove(targetUid) });
-      await themRef.update({ followerCount: FB.incr(-1) });
-    } else {
-      await myRef.update({ following: FB.arrUnion(targetUid) });
-      await themRef.update({ followerCount: FB.incr(1) });
-    }
-  };
-
-  const isFollowing = (targetUid) => {
-    const u = Auth.user();
-    return u?.following?.includes(targetUid) || false;
-  };
-
-  return { follow, isFollowing };
+  return { init, onChange, login, logout, user, uid, isAdmin, isLoggedIn };
 })();
 
 /* ════════════════════════════════════════════════
@@ -658,26 +489,7 @@ const Render = (() => {
     obs.observe(el);
   };
 
-  /* ── User state in nav ── */
-  const renderUserNav=user=>{
-    const el=$('user-nav-area');if(!el)return;
-    if(user){
-      el.innerHTML=`
-        <div class="user-nav-btn" onclick="toggleUserMenu()">
-          <div class="user-avatar-sm">${user.avatar||user.displayName?.charAt(0)||'U'}</div>
-          <span class="user-nav-name">${user.username||user.displayName}</span>
-          <span style="font-size:10px;color:var(--muted)">▾</span>
-        </div>
-        <div class="user-menu" id="user-menu" style="display:none">
-          <div class="um-item" onclick="showProfile()">👤 我的主页</div>
-          <div class="um-item" onclick="openPostCreate()">✏️ 发布文章</div>
-          <div class="um-sep"></div>
-          <div class="um-item" onclick="doLogout()">→ 退出登录</div>
-        </div>`;
-    } else {
-      el.innerHTML=`<button class="nav-login-btn" onclick="openAuthModal()">登录 / 注册</button>`;
-    }
-  };
+  const renderUserNav=()=>{};
 
   /* ── Announcement bar ── */
   const renderAnnouncements=list=>{
@@ -699,10 +511,8 @@ const Render = (() => {
   const switchTab=tab=>{
     _currentTab=tab;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-    const og=$('official-section'), cm=$('community-section');
-    if(og) og.style.display=tab==='official'?'block':'none';
-    if(cm) cm.style.display=tab==='community'?'block':'none';
-    if(tab==='community') renderCommunityGrid(Community.all());
+    const og=$('official-section');
+    if(og) og.style.display='block';
   };
 
   /* ── Official posts ── */
@@ -733,52 +543,9 @@ const Render = (() => {
       </div>
     </div>`;
 
-  /* ── Community posts ── */
-  const renderCommunityGrid=posts=>{
-    const grid=$('community-grid');if(!grid)return;
-    const filterCat=($('comm-filter-active')?.dataset.cat)||'all';
-    const filtered=filterCat==='all'?posts:posts.filter(p=>p.cat===filterCat);
-    if(!filtered.length){grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--muted);font-size:14px">${FB.isReady()?'社区还没有文章，来发布第一篇！☁':'需要配置 Firebase 才能使用社区功能'}</div>`;return;}
-    grid.innerHTML=filtered.map(p=>communityCard(p)).join('');
-    initCardTilt();
-  };
-
-  const communityCard=p=>{
-    const liked=Auth.isLoggedIn()&&(p.likes||[]).includes(Auth.uid());
-    const ts=p.createdAt?.toDate?p.createdAt.toDate():new Date();
-    const dateStr=ts.toLocaleDateString('zh-CN',{month:'short',day:'numeric'});
-    return `
-    <div class="post-card comm-card" onclick="openPost('${p.id}','community')">
-      <div class="post-thumb ${p.cover?.style||'cv1'}">
-        <div class="pta"></div><div class="ptg">${p.cover?.glyph||'✦'}</div>
-        <div class="comm-author-badge">
-          <span class="comm-av">${p.authorAvatar||'U'}</span>
-          <span>${p.authorName||'匿名'}</span>
-        </div>
-      </div>
-      <div class="post-body">
-        <div class="post-meta">
-          <span class="post-cat cat-${p.cat||'other'}">${CAT[p.cat]||'其他'}</span>
-          <span class="post-date">${dateStr}</span>
-        </div>
-        <h3 class="post-title">${p.title}</h3>
-        <p class="post-excerpt">${p.excerpt||''}</p>
-        <div class="post-tags">${(p.tags||[]).map(t=>`<span class="post-tag">${t}</span>`).join('')}</div>
-        <div class="comm-card-footer">
-          <button class="like-btn${liked?' liked':''}" onclick="event.stopPropagation();likeCommunityPost('${p.id}')">
-            ♥ <span>${p.likeCount||0}</span>
-          </button>
-          <span class="comm-comments">💬 ${p.commentCount||0}</span>
-        </div>
-      </div>
-    </div>`;
-  };
-
-  /* ── Pagination ── */
-  const renderPagination=(pages,cur,cat,type)=>{
-    const elId=type==='community'?'comm-pagination':'pagination';
-    const el=$(elId);if(!el||pages<=1){if(el)el.innerHTML='';return;}
-    el.innerHTML=Array.from({length:pages},(_,i)=>i+1).map(p=>`<button class="page-btn${p===cur?' active':''}" onclick="${type==='community'?`changeCommunityPage(${p})`:`changePage(${p},'${cat}')`}">${p}</button>`).join('');
+  const renderPagination=(pages,cur,cat)=>{
+    const el=$('pagination');if(!el||pages<=1){if(el)el.innerHTML='';return;}
+    el.innerHTML=Array.from({length:pages},(_,i)=>i+1).map(p=>`<button class="page-btn${p===cur?' active':''}" onclick="changePage(${p},'${cat}')">${p}</button>`).join('');
   };
 
   /* ── Sidebar stats / cat / tags ── */
@@ -797,7 +564,7 @@ const Render = (() => {
   };
 
   /* ── Post modal ── */
-  const openModal=(post,postType)=>{
+  const openModal=(post)=>{
     const cv=(post.cover?.style||'cv1').replace('cover-','cv');
     const mc=$('modal-cover');if(mc)mc.className=`modal-cover ${cv}`;
     $('modal-glyph').textContent=post.cover?.glyph||'✦';
@@ -813,9 +580,6 @@ const Render = (() => {
     if(mt&&window.renderMathInElement){try{renderMathInElement(mt,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});}catch{}}
     if(mt)TOC.build(mt);
     $('modal-tags').innerHTML=(post.tags||[]).map(t=>`<span class="modal-tag">${t}</span>`).join('');
-
-    /* Comments section */
-    renderCommentArea(post.id, postType);
     $('post-modal').classList.add('open');
     document.body.style.overflow='hidden';
   };
@@ -823,91 +587,16 @@ const Render = (() => {
   const closeModal=()=>{
     $('post-modal').classList.remove('open');
     document.body.style.overflow='';
-    Comments.stopListen();
-    const gc=$('giscus-container');if(gc)gc.innerHTML='';
     const toc=$('modal-toc');if(toc)toc.style.display='none';
   };
 
   /* ── Comment area ── */
-  const renderCommentArea=(postId,postType)=>{
+  const renderCommentArea=()=>{
     const ca=$('comment-area');if(!ca)return;
-    ca.innerHTML='';
-
-    if(!FB.isReady()){
-      // Fall back to Giscus
-      const c=Config.get('comments')||{};
-      if(c.enabled&&c.repo){
-        const gc=$('giscus-container');if(gc){gc.innerHTML='';const s=document.createElement('script');s.src='https://giscus.app/client.js';[['data-repo',c.repo],['data-repo-id',c.repoId],['data-category',c.category||'General'],['data-category-id',c.categoryId||''],['data-mapping',c.mapping||'pathname'],['data-reactions-enabled',c.reactionsEnabled||'1'],['data-input-position',c.inputPosition||'top'],['data-theme',c.theme||'dark_dimmed'],['data-lang','zh-CN']].forEach(([k,v])=>s.setAttribute(k,v));s.crossOrigin='anonymous';s.async=true;gc.appendChild(s);}
-      }
-      return;
-    }
-
-    /* Firebase comments */
-    ca.innerHTML=`
-      <div class="comment-section">
-        <div class="cs-title">💬 评论</div>
-        ${Auth.isLoggedIn()?`
-          <div class="comment-input-area">
-            <div class="user-avatar-sm">${Auth.user().avatar||'U'}</div>
-            <div class="ci-right">
-              <textarea id="new-comment-text" class="fi" placeholder="写下你的想法..." style="height:72px;resize:vertical"></textarea>
-              <button class="btn-sm" onclick="submitComment('${postId}','${postType}')">发布评论</button>
-            </div>
-          </div>`:`
-          <div class="comment-login-hint">
-            <button class="btn-ghost sm" onclick="openAuthModal()">登录后发表评论</button>
-          </div>`}
-        <div id="comments-list" class="comments-list"></div>
-      </div>`;
-
-    Comments.listen(postId, postType, comments => renderCommentsList(comments, postId, postType));
+    ca.innerHTML='<div class="comment-section"><div class="cs-title">💬 评论</div><div style="color:var(--muted);font-size:13px">评论功能已移除</div></div>';
   };
 
-  const renderCommentsList=(comments,postId,postType)=>{
-    const el=$('comments-list');if(!el)return;
-    const roots=comments.filter(c=>!c.parentId);
-    const replies=comments.filter(c=>!!c.parentId);
-    if(!roots.length){el.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">还没有评论，来说第一句话</div>`;return;}
-    el.innerHTML=roots.map(c=>{
-      const myReplies=replies.filter(r=>r.parentId===c.id);
-      const ts=c.createdAt?.toDate?c.createdAt.toDate():new Date();
-      const liked=Auth.isLoggedIn()&&(c.likes||[]).includes(Auth.uid());
-      const isOwn=Auth.uid()===c.authorId;
-      return `
-        <div class="comment-item" id="ci-${c.id}">
-          <div class="ci-header">
-            <span class="ci-av">${c.authorAvatar||'U'}</span>
-            <div class="ci-meta">
-              <span class="ci-name">${c.authorName||'匿名'}</span>
-              <span class="ci-date">${ts.toLocaleDateString('zh-CN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
-            </div>
-            <div class="ci-actions">
-              <button class="ci-btn${liked?' liked':''}" onclick="likeComment('${c.id}')">♥ ${c.likeCount||0}</button>
-              <button class="ci-btn" onclick="showReplyBox('${c.id}','${postId}','${postType}')">回复</button>
-              ${isOwn||Auth.isAdmin()?`<button class="ci-btn del" onclick="deleteComment('${c.id}','${postId}','${postType}')">删除</button>`:''}
-            </div>
-          </div>
-          <div class="ci-content">${c.content}</div>
-          ${myReplies.map(r=>{
-            const rt=r.createdAt?.toDate?r.createdAt.toDate():new Date();
-            const rl=Auth.isLoggedIn()&&(r.likes||[]).includes(Auth.uid());
-            return `<div class="comment-reply" id="ci-${r.id}">
-              <span class="ci-av sm">${r.authorAvatar||'U'}</span>
-              <div class="ci-meta">
-                <span class="ci-name">${r.authorName||'匿名'}</span>
-                <span class="ci-date">${rt.toLocaleDateString('zh-CN',{month:'short',day:'numeric'})}</span>
-              </div>
-              <div class="ci-content">${r.content}</div>
-              <div class="ci-actions">
-                <button class="ci-btn${rl?' liked':''}" onclick="likeComment('${r.id}')">♥ ${r.likeCount||0}</button>
-                ${Auth.uid()===r.authorId||Auth.isAdmin()?`<button class="ci-btn del" onclick="deleteComment('${r.id}','${postId}','${postType}')">删除</button>`:''}
-              </div>
-            </div>`;
-          }).join('')}
-          <div id="reply-box-${c.id}" style="display:none" class="reply-box-area"></div>
-        </div>`;
-    }).join('');
-  };
+  const renderCommentsList=()=>{};
 
   /* ── Search ── */
   const renderSearch=(results,q)=>{
@@ -937,8 +626,8 @@ const Render = (() => {
     });
   };
 
-  return { applyConfig, renderPosts, renderSocial, renderSkills, renderUserNav,
-           renderAnnouncements, switchTab, renderCommunityGrid, renderCommentsList,
+  return { applyConfig, renderPosts, renderSocial, renderSkills,
+           renderAnnouncements, switchTab,
            renderSearch, openModal, closeModal, initCardTilt };
 })();
 
@@ -949,19 +638,51 @@ const Admin = (() => {
   const $=id=>document.getElementById(id);
   let editId=null;
 
-  const showLogin=()=>{ $('admin-login').style.display='flex'; $('admin-app').style.display='none'; };
+  const showLogin=()=>{ $('admin-login').style.display='flex'; $('admin-app').style.display='none'; updateAdminRoutePreview(); };
   const showApp=()=>{ $('admin-login').style.display='none'; $('admin-app').style.display='flex'; };
 
   const doLogin=async()=>{
-    const input=$('pwd-input').value;
-    if(!input)return;
-    const inputHash=await sha256(input);
-    if(inputHash===Config.getPasswordHash()){showApp();refresh();}
-    else{$('login-err').style.display='block';$('pwd-input').value='';}
+    const email=$('admin-email-input')?.value.trim()||Config.get('auth.adminEmail');
+    const pwd=$('pwd-input').value;
+    if(!email||!pwd)return;
+    try {
+      await Auth.login(email,pwd);
+      if(Auth.isAdmin()){showApp();refresh();}
+      else{await Auth.logout();$('login-err').textContent='不是管理员账号';$('login-err').style.display='block';}
+    } catch {
+      $('login-err').textContent='邮箱或密码错误';
+      $('login-err').style.display='block';
+      $('pwd-input').value='';
+    }
   };
   const open=()=>{showLogin();$('admin-overlay').classList.add('vis');$('pwd-input').value='';$('login-err').style.display='none';};
-  const exit=()=>{
+  const openIfRouteMatches=()=>{
+    const expected='/' + (Config.get('auth.adminPath') || 'manage-ryoko').replace(/^\/+/, '');
+    if(location.pathname===expected){ open(); return true; }
+    return false;
+  };
+  const updateAdminRoutePreview=()=>{
+    const path=(Config.get('auth.adminPath') || 'manage-ryoko').replace(/^\/+/, '');
+    const el=$('admin-route-preview');
+    if(el) el.textContent=`${location.origin}/${path}`;
+    const input=$('admin-route');
+    if(input) input.value=path;
+  };
+  const saveAdminAccess=async()=>{
+    const input=$('admin-route');
+    const raw=(input?.value || '').trim().replace(/^\/+/, '');
+    if(!raw){toast('⚠️ 请填写隐藏路由');return;}
+    await Config.saveSection('auth',{...Config.get('auth'),adminEmail:Config.get('auth.adminEmail'),adminPath:raw});
+    updateAdminRoutePreview();
+    toast('✅ 隐藏路由已保存');
+  };
+  const goToAdminRoute=()=>{
+    const path=(Config.get('auth.adminPath') || 'manage-ryoko').replace(/^\/+/, '');
+    location.pathname='/' + path;
+  };
+  const exit=async()=>{
     $('admin-overlay').classList.remove('vis');
+    await Config.persist();
     Render.applyConfig(Config.all());
     FX.applyAll(Config.get('effects')||{});
     Theme.apply(Config.get('theme')||{});
@@ -977,7 +698,7 @@ const Admin = (() => {
     const nav=document.querySelector(`.anav[data-panel="${name}"]`);if(nav)nav.classList.add('active');
     const pnl=$('panel-'+name);if(pnl)pnl.classList.add('active');
     const m=$('admin-main');if(m)m.scrollTop=0;
-    const loaders={dashboard:loadDash,articles:loadArticles,hero:loadHero,effects:loadFxForm,contact:loadContact,profile:loadProfile,theme:loadTheme,tools:loadTools,announce:loadAnnounce,password:()=>{}};
+    const loaders={dashboard:loadDash,articles:loadArticles,hero:loadHero,effects:loadFxForm,contact:loadContact,profile:loadProfile,theme:loadTheme,tools:loadTools,announce:loadAnnounce,password:loadAdminAccess};
     if(loaders[name])loaders[name]();
   };
 
@@ -1039,9 +760,9 @@ const Admin = (() => {
     previewBg();
   };
   const previewBg=()=>{const url=$('h-bg')?.value,pv=$('bg-preview');if(!pv)return;if(url){pv.style.backgroundImage=`url('${url}')`;pv.textContent='';}else{pv.style.backgroundImage='';pv.textContent='暂无背景图';}};
-  const saveHero=()=>{
+  const saveHero=async()=>{
     const h={line1:$('h-line1').value.trim()||"Ryoko's",line2:$('h-line2').value.trim()||'Personal Blog',subtitle:$('h-sub').value.trim(),badge:$('h-badge').value.trim(),btn1:$('h-btn1').value.trim()||'开始阅读',btn2:$('h-btn2').value.trim()||'了解我',bgImage:$('h-bg').value.trim(),bgOpacity:+($('h-opacity').value),showCode:$('h-show-code').checked};
-    Config.saveSection('hero',h);Render.applyConfig(Config.all());toast('✅ 主页设置已保存 — 导出 config.json 提交 GitHub 全设备同步');
+    await Config.saveSection('hero',h);Render.applyConfig(Config.all());toast('✅ 主页设置已保存');
   };
 
   /* Effects */
@@ -1050,9 +771,9 @@ const Admin = (() => {
     const fx=Config.get('effects')||{};
     $('fx-grid').innerHTML=FX_DEFS.map(f=>`<div class="fx-card"><div class="fx-head"><div><div class="fx-name">${f.icon} ${f.name}</div><div class="fx-desc">${f.desc}</div></div><label class="tgl-label" style="flex-shrink:0"><input type="checkbox" class="tgl-cb" id="fx-${f.key}" ${fx[f.key]?'checked':''} onchange="Admin.liveFx('${f.key}',this.checked)"></label></div><div class="fx-rl">强度</div><input type="range" class="fx-r" id="fx-int-${f.key}" min="1" max="10" value="${fx[f.ik]||5}" oninput="Admin.liveFxInt('${f.ik}',+this.value)"></div>`).join('');
   };
-  const liveFx=(k,on)=>{Config.save('effects.'+k,on);FX.toggle(k,on,+($('fx-int-'+k)?.value||5));};
-  const liveFxInt=(ik,v)=>{Config.save('effects.'+ik,v);};
-  const saveEffects=()=>{const fx={};FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);});Config.saveSection('effects',fx);FX.applyAll(fx);toast('✅ 特效已保存 — 关闭后台可在博客看到效果');};
+  const liveFx=async(k,on)=>{await Config.save('effects.'+k,on);FX.toggle(k,on,+($('fx-int-'+k)?.value||5));};
+  const liveFxInt=async(ik,v)=>{await Config.save('effects.'+ik,v);};
+  const saveEffects=async()=>{const fx={};FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);});await Config.saveSection('effects',fx);FX.applyAll(fx);toast('✅ 特效已保存 — 关闭后台可在博客看到效果');};
 
   /* Contact */
   const CI={Email:'✉️',GitHub:'🐙',Twitter:'🐦',Instagram:'📷',Weibo:'🌐',WeChat:'💬',LinkedIn:'💼',YouTube:'▶️',Bilibili:'📺',其他:'🔗'};
@@ -1068,14 +789,14 @@ const Admin = (() => {
   const setC=(i,k,v)=>{if(contacts[i])contacts[i][k]=v;};
   const rmC=i=>{contacts.splice(i,1);renderCE();};
   const addContact=()=>{contacts.push({type:'其他',label:'新链接',url:'https://',icon:'🔗'});renderCE();};
-  const saveContact=()=>{
+  const saveContact=async()=>{
     contacts.forEach(c=>{c.icon=CI[c.type]||'🔗';});
-    Config.saveSection('social',contacts);
+    await Config.saveSection('social',contacts);
     const p1val=$('about-p1')?.value||'',p2val=$('about-p2')?.value||'';
-    Config.saveSection('about',{p1:p1val,p2:p2val});
+    await Config.saveSection('about',{p1:p1val,p2:p2val});
     const bp1=document.getElementById('blog-about-p1'),bp2=document.getElementById('blog-about-p2');
     if(bp1)bp1.textContent=p1val;if(bp2)bp2.textContent=p2val;
-    Render.applyConfig(Config.all());Render.renderPosts(Posts.all());toast('✅ 联系方式已保存 — 导出 config.json 提交 GitHub 全设备同步');
+    Render.applyConfig(Config.all());Render.renderPosts(Posts.all());toast('✅ 联系方式已保存');
   };
 
   /* Profile */
@@ -1091,11 +812,11 @@ const Admin = (() => {
   const setSk=(i,k,v)=>{if(skills[i])skills[i][k]=v;};
   const rmSk=i=>{skills.splice(i,1);renderSE();};
   const addSkill=()=>{skills.push({label:'新技能',pct:80});renderSE();};
-  const saveSkills=()=>{Config.saveSection('skills',skills);Render.renderSkills(skills);toast('✅ 技能条已保存');};
-  const saveProfile=()=>{
-    Config.saveSection('site',{...Config.get('site'),avatar:$('p-av').value.trim()||'R',author:$('p-name').value.trim(),bio:$('p-bio').value.trim(),title:$('p-blog-name').value.trim()||'Ryoko',description:$('p-blog-sub').value.trim(),url:$('p-site-url').value.trim()});
-    Config.saveSection('footer',{copy:$('p-footer-copy').value.trim(),sub:$('p-footer-sub').value.trim()});
-    SEO.update(Config.all());Render.applyConfig(Config.all());toast('✅ 博主信息已保存 — 导出 config.json 提交 GitHub 全设备同步');
+  const saveSkills=async()=>{await Config.saveSection('skills',skills);Render.renderSkills(skills);toast('✅ 技能条已保存');};
+  const saveProfile=async()=>{
+    await Config.saveSection('site',{...Config.get('site'),avatar:$('p-av').value.trim()||'R',author:$('p-name').value.trim(),bio:$('p-bio').value.trim(),title:$('p-blog-name').value.trim()||'Ryoko',description:$('p-blog-sub').value.trim(),url:$('p-site-url').value.trim()});
+    await Config.saveSection('footer',{copy:$('p-footer-copy').value.trim(),sub:$('p-footer-sub').value.trim()});
+    SEO.update(Config.all());Render.applyConfig(Config.all());toast('✅ 博主信息已保存');
   };
 
   /* Theme */
@@ -1109,8 +830,8 @@ const Admin = (() => {
   const applyPreset=(label,blue,cyan,el)=>{document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));el.classList.add('active');$('t-c1').value=blue;$('t-c2').value=cyan;previewColor('blue',blue);previewColor('cyan',cyan);Config.save('theme.preset',label);};
   const pickFont=(id,el)=>{pFont=id;document.querySelectorAll('.font-opt').forEach(f=>f.classList.remove('sel'));el.classList.add('sel');};
   const previewColor=(k,v)=>document.documentElement.style.setProperty('--'+k,v);
-  const saveTheme=()=>{const t={...Config.get('theme'),blue:$('t-c1').value,cyan:$('t-c2').value};Config.saveSection('theme',t);Theme.apply(t);Render.applyConfig(Config.all());toast('✅ 配色已保存');};
-  const saveFont=()=>{if(!pFont){toast('⚠️ 请先选择字体');return;}const t={...Config.get('theme'),font:pFont};Config.saveSection('theme',t);Theme.apply(t);toast('✅ 字体已应用');};
+  const saveTheme=async()=>{const t={...Config.get('theme'),blue:$('t-c1').value,cyan:$('t-c2').value};await Config.saveSection('theme',t);Theme.apply(t);Render.applyConfig(Config.all());toast('✅ 配色已保存');};
+  const saveFont=async()=>{if(!pFont){toast('⚠️ 请先选择字体');return;}const t={...Config.get('theme'),font:pFont};await Config.saveSection('theme',t);Theme.apply(t);toast('✅ 字体已应用');};
 
   /* Announcements (F006 admin side) */
   const loadAnnounce=()=>{
@@ -1138,41 +859,24 @@ const Admin = (() => {
 
   /* Tools */
   const loadTools=()=>{
-    const c=Config.get('comments')||{};
-    const sv=(id,v)=>{const e=$(id);if(e)e.value=v||'';};
-    sv('g-repo',c.repo);sv('g-repo-id',c.repoId);sv('g-cat',c.category);sv('g-cat-id',c.categoryId);
-    const ge=$('g-enabled');if(ge)ge.checked=!!c.enabled;
     const sd=$('stats-detail');
     if(sd){const v=Stats.getVisits(),o=Stats.getOpens(),posts=Posts.all();const tp=Object.entries(o).sort((a,b)=>b[1]-a[1])[0];sd.innerHTML=`<div>📅 今日：${v[new Date().toISOString().slice(0,10)]||0} 次</div><div>📊 总计：${Stats.total()} 次</div><div>🔥 最热：${tp?(posts.find(p=>p.id===tp[0])?.title||tp[0])+'('+tp[1]+'次)':'—'}</div><div>📝 文章：${posts.length} 篇</div>`;}
   };
-  const saveGiscus=()=>{const c={...Config.get('comments'),enabled:!!$('g-enabled').checked,repo:$('g-repo').value.trim(),repoId:$('g-repo-id').value.trim(),category:$('g-cat').value.trim()||'General',categoryId:$('g-cat-id').value.trim()};Config.saveSection('comments',c);toast('✅ Giscus 配置已保存');};
   const clearStats=()=>{if(!confirm('确认清除？'))return;Stats.clear();loadTools();toast('🗑 统计已清除');};
 
-  /* Password */
-  const changePassword=async()=>{
-    const cur=$('pwd-cur').value,nw=$('pwd-new').value,cf=$('pwd-cfm').value;
-    if(!cur||!nw||!cf){toast('⚠️ 请填写所有密码字段');return;}
-    const curHash=await sha256(cur);
-    if(curHash!==Config.getPasswordHash()){toast('⚠️ 当前密码错误');return;}
-    if(nw.length<6){toast('⚠️ 新密码至少 6 位');return;}
-    if(nw!==cf){toast('⚠️ 两次不一致');return;}
-    Config.setPasswordHash(await sha256(nw));
-    ['pwd-cur','pwd-new','pwd-cfm'].forEach(id=>{const e=$(id);if(e)e.value='';});
-    toast('✅ 密码已更新 — 正在下载新的 config.json，请提交到 GitHub',6000);
-    setTimeout(()=>Tools.downloadConfigJson(),1500);
-  };
+  const loadAdminAccess=()=>{ updateAdminRoutePreview(); };
 
   return {
-    doLogin, open, exit, switchPanel,
+    doLogin, open, openIfRouteMatches, exit, switchPanel,
     startNew, editArt, delArt, saveArticle, cancelForm,
     loadHero, previewBg, saveHero,
     loadFxForm, liveFx, liveFxInt, saveEffects,
     addContact, setC, rmC, saveContact,
     loadProfile, setSk, rmSk, addSkill, saveSkills, saveProfile,
     loadTheme, applyPreset, pickFont, previewColor, saveTheme, saveFont,
-    loadTools, saveGiscus, clearStats,
+    loadTools, clearStats,
     loadAnnounce, saveAnnounce, delAnnounce,
-    changePassword,
+    saveAdminAccess, goToAdminRoute,
   };
 })();
 
@@ -1193,173 +897,29 @@ function $(id){return document.getElementById(id);}
 let curCat='all', curPage=1;
 
 /* Admin */
-function openAdmin()     { Admin.open(); }
 function exitAdmin()     { Admin.exit(); }
 function doLogin()       { Admin.doLogin(); }
 function toggleTheme()   { Theme.toggle(); }
 
-/* Auth */
-function openAuthModal() {
-  const m=$('auth-modal');
-  if(m){m.classList.add('open');switchAuthTab('login');}
-}
-function closeAuthModal() {
-  const m=$('auth-modal');
-  if(m)m.classList.remove('open');
-}
-function switchAuthTab(tab) {
-  ['login','register'].forEach(t=>{
-    const btn=document.querySelector(`.auth-tab-btn[data-tab="${t}"]`);
-    const pnl=$('auth-'+t+'-panel');
-    if(btn)btn.classList.toggle('active',t===tab);
-    if(pnl)pnl.style.display=t===tab?'block':'none';
-  });
-}
-async function doRegister() {
-  const username=$('reg-username')?.value.trim();
-  const email=$('reg-email')?.value.trim();
-  const pwd=$('reg-pwd')?.value;
-  if(!username||!email||!pwd){toast('⚠️ 请填写所有注册信息');return;}
-  if(pwd.length<6){toast('⚠️ 密码至少 6 位');return;}
-  try{
-    await Auth.register(email,pwd,username);
-    closeAuthModal();
-    toast('🎉 注册成功！欢迎 '+username);
-  }catch(e){
-    const msg={
-      'auth/email-already-in-use':'该邮箱已被注册',
-      'auth/invalid-email':'邮箱格式不正确',
-      'auth/weak-password':'密码强度不足'
-    }[e.code]||e.message;
-    toast('⚠️ '+msg);
-  }
-}
-async function doAuthLogin() {
-  const email=$('login-email')?.value.trim();
-  const pwd=$('login-pwd')?.value;
-  if(!email||!pwd){toast('⚠️ 请填写邮箱和密码');return;}
-  try{
-    await Auth.login(email,pwd);
-    closeAuthModal();
-    toast('👋 欢迎回来！');
-  }catch(e){
-    const msg={
-      'auth/user-not-found':'用户不存在',
-      'auth/wrong-password':'密码错误',
-      'auth/invalid-email':'邮箱格式不正确',
-      'auth/too-many-requests':'登录失败次数过多，请稍后重试'
-    }[e.code]||e.message;
-    toast('⚠️ '+msg);
-  }
-}
+/* Admin-only helpers */
 function doLogout() { Auth.logout().then(()=>toast('已退出登录')); }
-function toggleUserMenu() {
-  const m=$('user-menu');
-  if(m)m.style.display=m.style.display==='none'?'block':'none';
-}
-document.addEventListener('click',e=>{
-  const menu=$('user-menu');
-  if(menu&&!e.target.closest('.user-nav-btn')&&!e.target.closest('#user-menu'))menu.style.display='none';
-});
-function showProfile() { toast('👤 个人主页功能开发中'); }
-
-/* Tab switching */
-function switchTab(tab) { Render.switchTab(tab); }
-
-/* Community */
-function openPostCreate() {
-  if(!Auth.isLoggedIn()){openAuthModal();return;}
-  const m=$('post-create-modal');if(m)m.classList.add('open');
-}
-function closePostCreate() {
-  const m=$('post-create-modal');if(m){m.classList.remove('open');['pc-title','pc-excerpt','pc-tags','pc-content'].forEach(id=>{const e=$(id);if(e)e.value='';});}
-}
-async function submitCommunityPost() {
-  const title=$('pc-title')?.value.trim();
-  const content=$('pc-content')?.value.trim();
-  if(!title||!content){toast('⚠️ 请填写标题和内容');return;}
-  const tags=$('pc-tags')?.value.split(',').map(t=>t.trim()).filter(Boolean)||[];
-  const cat=$('pc-cat')?.value||'other';
-  const format=$('pc-format')?.value||'markdown';
-  const excerpt=$('pc-excerpt')?.value.trim()||content.slice(0,120).replace(/#+|[*_`]/g,'').trim();
-  try{
-    await Community.create({title,content,excerpt,tags,cat,format});
-    closePostCreate();
-    toast('✅ 文章发布成功！');
-  }catch(e){toast('⚠️ '+e.message);}
-}
-function likeCommunityPost(id) { Community.toggleLike(id).catch(e=>toast('⚠️ '+e.message)); }
-
-/* Comments */
-async function submitComment(postId, postType) {
-  const txt=$('new-comment-text')?.value.trim();
-  if(!txt)return;
-  try{await Comments.add(postId,postType,txt);$('new-comment-text').value='';}
-  catch(e){toast('⚠️ '+e.message);}
-}
-function showReplyBox(commentId,postId,postType) {
-  const box=$('reply-box-'+commentId);if(!box)return;
-  if(box.innerHTML){box.innerHTML='';return;}
-  if(!Auth.isLoggedIn()){openAuthModal();return;}
-  box.innerHTML=`
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <textarea class="fi" id="reply-txt-${commentId}" placeholder="回复..." style="height:54px;resize:vertical;flex:1"></textarea>
-      <button class="btn-sm" onclick="submitReply('${commentId}','${postId}','${postType}')">回复</button>
-    </div>`;
-}
-async function submitReply(commentId,postId,postType) {
-  const txt=$('reply-txt-'+commentId)?.value.trim();
-  if(!txt)return;
-  try{await Comments.add(postId,postType,txt,commentId);const box=$('reply-box-'+commentId);if(box)box.innerHTML='';}
-  catch(e){toast('⚠️ '+e.message);}
-}
-function likeComment(id) { Comments.toggleLike(id).catch(e=>toast('⚠️ '+e.message)); }
-async function deleteComment(id,postId,postType) {
-  if(!confirm('确认删除评论？'))return;
-  try{await Comments.remove(id);}
-  catch(e){toast('⚠️ '+e.message);}
-}
-
-/* Posts */
-function openPost(id,type='official') {
-  if(type==='official'){
-    const p=Posts.byId(id);if(!p)return;
-    Stats.recordOpen(id);
-    Render.openModal(p,'official');
-  } else {
-    const p=Community.all().find(x=>x.id===id);if(!p)return;
-    Render.openModal(p,'community');
-  }
-}
 function closeModal()           { Render.closeModal(); }
 function closeModalBg(e)        { if(e.target.id==='post-modal') Render.closeModal(); }
-function closeAuthModalBg(e)    { if(e.target.id==='auth-modal') closeAuthModal(); }
-function closePostCreateBg(e)   { if(e.target.id==='post-create-modal') closePostCreate(); }
 function scrollTo2(id)          { document.getElementById(id)?.scrollIntoView({behavior:'smooth'}); }
 function filterByCat(cat) {
   curCat=cat; curPage=1;
   document.querySelectorAll('.fbtn').forEach(b=>b.classList.toggle('active',b.dataset.cat===cat));
   Render.renderPosts(Posts.all(),cat,1);
 }
-function filterByTag(tag) {
-  const si=$('search-input');if(si){si.value=tag;doSearch(tag);}
-}
 function changePage(p,cat)      { curPage=p; curCat=cat; Render.renderPosts(Posts.all(),cat,p); scrollTo2('posts-section'); }
-function changeCommunityPage(p) { Render.renderCommunityGrid(Community.all()); }
-
 let _st=null;
 function doSearch(q)      { clearTimeout(_st); _st=setTimeout(()=>Render.renderSearch(Posts.search(q),q),200); }
 function clearSearch()    { const si=$('search-input'),sr=$('search-results'); if(si)si.value=''; if(sr){sr.style.display='none';sr.innerHTML='';} }
 function searchByTag(t)   { const si=$('search-input'); if(si){si.value=t;doSearch(t);si.focus();} }
 function doSubscribe()    { const e=$('email-input')?.value; if(!e||!e.includes('@')){toast('⚠️ 请输入有效邮箱');return;} toast('✅ 订阅成功！感谢关注 ✦'); $('email-input').value=''; }
-
 function logoClick() {
-  logoClick._c=(logoClick._c||0)+1; clearTimeout(logoClick._t);
-  logoClick._t=setTimeout(()=>{logoClick._c=0;},1500);
-  if(logoClick._c>=5){logoClick._c=0;Admin.open();}
+  Admin.goToAdminRoute();
 }
-
-/* Admin global proxies */
 window.Admin=Admin;
 function saveHero()           { Admin.saveHero(); }
 function saveEffects()        { Admin.saveEffects(); }
@@ -1368,9 +928,7 @@ function saveProfile()        { Admin.saveProfile(); }
 function saveSkills()         { Admin.saveSkills(); }
 function saveTheme()          { Admin.saveTheme(); }
 function saveFont()           { Admin.saveFont(); }
-function saveGiscus()         { Admin.saveGiscus(); }
 function clearStats()         { Admin.clearStats(); }
-function changePassword()     { Admin.changePassword(); }
 function startNew()           { Admin.startNew(); }
 function cancelForm()         { Admin.cancelForm(); }
 function saveArticle()        { Admin.saveArticle(); }
@@ -1381,15 +939,12 @@ function downloadRSS()        { Tools.downloadRSS(); }
 function downloadSitemap()    { Tools.downloadSitemap(); }
 function downloadConfigJson() { Tools.downloadConfigJson(); }
 function downloadPostsJson()  { Tools.downloadPostsJson(); }
-function saveAnnounce()       { Admin.saveAnnounce(); }
 
 /* Keyboard shortcuts */
 document.addEventListener('click',e=>{ if(!e.target.closest('.search-wrap'))clearSearch(); });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if($('post-modal')?.classList.contains('open'))Render.closeModal();
-    if($('auth-modal')?.classList.contains('open'))closeAuthModal();
-    if($('post-create-modal')?.classList.contains('open'))closePostCreate();
     if($('admin-overlay')?.classList.contains('vis'))Admin.exit();
   }
 });
@@ -1413,8 +968,17 @@ window.addEventListener('load',()=>{
    INIT
 ════════════════════════════════════════════════ */
 (async()=>{
-  const [cfg,posts]=await Promise.all([Config.load(),Posts.load()]);
+  let cfg = await Config.load();
+  const posts = await Posts.load();
   Theme.initDark();
+
+  /* Firebase init */
+  const fbReady=FB.init(cfg.firebase);
+  if(fbReady){
+    Auth.init();
+    cfg = await Config.hydrateRemote();
+  }
+
   Theme.apply(cfg.theme||{});
   SEO.update(cfg);
   Render.applyConfig(cfg);
@@ -1426,26 +990,16 @@ window.addEventListener('load',()=>{
   Stats.recordVisit();
   if(window.hljs)hljs.configure({ignoreUnescapedHTML:true});
 
-  /* Firebase init */
-  const fbReady=FB.init(cfg.firebase);
   if(fbReady){
-    Auth.init();
-    Auth.onChange(user=>{
-      Render.renderUserNav(user);
-      if(user) toast(`👋 欢迎回来，${user.username||user.displayName}！`,2000);
-    });
-    Community.listen(commPosts=>{
-      Render.renderCommunityGrid(commPosts);
-    });
     Announce.listen(list=>{
       Render.renderAnnouncements(list);
     });
   } else {
-    /* Firebase not configured: show login/register button but disable community */
-    Render.renderUserNav(null);
     const fbNotice=$('firebase-notice');
     if(fbNotice)fbNotice.style.display='block';
   }
+
+  Admin.openIfRouteMatches();
 
   /* O002: 3D tilt init after first render */
   Render.initCardTilt();

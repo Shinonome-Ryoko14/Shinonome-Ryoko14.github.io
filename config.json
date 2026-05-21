@@ -91,8 +91,8 @@
     "sub":  "Built with ✦ and curiosity"
   },
   "auth": {
-    "passwordHash": "5137f70d806a6e6786959e855e17c21f3ca2ff17d5ca2dbe1eaf1ec4e8db0c59",
-    "hint": "ryoko2025 — 在管理后台修改密码后导出此文件提交到 GitHub"
+    "adminEmail": "",
+    "adminPath": "manage-ryoko"
   },
 "firebase": {
   "apiKey": "AIzaSyBI7iRk-KuQ_1I25Mk8KUjTq7aG2_CFD0o",

@@ -52,83 +52,6 @@
 <canvas id="cv-snow" class="fx-cv"></canvas>
 <div id="toast" role="alert" aria-live="polite"></div>
 
-<!-- ══════════ AUTH MODAL ══════════ -->
-<div id="auth-modal" class="modal-overlay" onclick="closeAuthModalBg(event)">
-  <div class="auth-box">
-    <div class="auth-header">
-      <div class="auth-tabs">
-        <button class="auth-tab-btn active" data-tab="login" onclick="switchAuthTab('login')">登录</button>
-        <button class="auth-tab-btn" data-tab="register" onclick="switchAuthTab('register')">注册</button>
-      </div>
-      <button class="modal-close" onclick="closeAuthModal()">✕</button>
-    </div>
-
-    <!-- Login -->
-    <div id="auth-login-panel">
-      <div class="auth-logo">Ryoko</div>
-      <p class="auth-sub">欢迎回来</p>
-      <input id="login-email" class="fi" type="email" placeholder="邮箱地址" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')doAuthLogin()">
-      <input id="login-pwd" class="fi" type="password" placeholder="密码" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')doAuthLogin()">
-      <button class="btn-primary" style="width:100%" onclick="doAuthLogin()">登录</button>
-      <p class="auth-switch">还没有账号？<a onclick="switchAuthTab('register')">立即注册</a></p>
-    </div>
-
-    <!-- Register -->
-    <div id="auth-register-panel" style="display:none">
-      <div class="auth-logo">加入 Ryoko</div>
-      <p class="auth-sub">创建你的账号</p>
-      <input id="reg-username" class="fi" placeholder="用户名" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')doRegister()">
-      <input id="reg-email" class="fi" type="email" placeholder="邮箱地址" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')doRegister()">
-      <input id="reg-pwd" class="fi" type="password" placeholder="密码（至少 6 位）" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')doRegister()">
-      <button class="btn-primary" style="width:100%" onclick="doRegister()">注册</button>
-      <p class="auth-switch">已有账号？<a onclick="switchAuthTab('login')">直接登录</a></p>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════ POST CREATE MODAL ══════════ -->
-<div id="post-create-modal" class="modal-overlay" onclick="closePostCreateBg(event)">
-  <div class="post-create-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <h3 style="font-family:var(--font-display);font-size:22px;font-weight:300;color:var(--text)">✏️ 发布文章</h3>
-      <button class="modal-close" style="position:static" onclick="closePostCreate()">✕</button>
-    </div>
-    <div class="fgrid">
-      <div class="fg full"><label>标题</label><input id="pc-title" class="fi" placeholder="文章标题"></div>
-      <div class="fg">
-        <label>分类</label>
-        <select id="pc-cat" class="fi">
-          <option value="tech">技术</option><option value="design">设计</option>
-          <option value="life">生活</option><option value="think">思考</option>
-          <option value="other">其他</option>
-        </select>
-      </div>
-      <div class="fg">
-        <label>格式</label>
-        <select id="pc-format" class="fi">
-          <option value="markdown">Markdown（推荐）</option>
-          <option value="html">HTML</option>
-        </select>
-      </div>
-      <div class="fg full"><label>摘要（可选，留空自动截取）</label><input id="pc-excerpt" class="fi" placeholder="一句话介绍"></div>
-      <div class="fg full"><label>标签（逗号分隔，如 C++,算法,AI）</label><input id="pc-tags" class="fi" placeholder="#C++,#算法,#AI"></div>
-      <div class="fg full">
-        <label>正文（支持 Markdown · LaTeX · 代码块）</label>
-        <div class="ced-wrap">
-          <div class="ced-bar">
-            <span class="ced-dot r"></span><span class="ced-dot y"></span><span class="ced-dot g"></span>
-            <span style="margin-left:10px;font-size:11px;color:var(--muted)">markdown</span>
-          </div>
-          <textarea id="pc-content" class="fi code-ta" rows="12" placeholder="# 文章标题&#10;&#10;支持 **Markdown**、`code`、$$LaTeX$$"></textarea>
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="btn-primary" onclick="submitCommunityPost()">发布</button>
-      <button class="btn-ghost sm" onclick="closePostCreate()">取消</button>
-    </div>
-  </div>
-</div>
 
 <!-- ══════════ ADMIN ══════════ -->
 <div id="admin-overlay">
@@ -136,10 +59,11 @@
     <div class="login-box">
       <div class="login-logo" id="admin-logo-el">Ryoko</div>
       <p class="login-sub">管理员登录</p>
+      <input id="admin-email-input" class="login-input" type="email" placeholder="管理员邮箱" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
       <input id="pwd-input" class="login-input" type="password" placeholder="输入密码" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-      <div id="login-err" class="login-err" style="display:none">密码错误，请重试</div>
+      <div id="login-err" class="login-err" style="display:none">邮箱或密码错误，请重试</div>
       <button class="btn-primary" style="width:100%;margin-top:4px" onclick="doLogin()">进入后台 →</button>
-      <p class="login-hint">默认密码：ryoko2025</p>
+      <p class="login-hint">使用 Firebase Authentication 中的管理员账号登录</p>
       <p class="login-back" onclick="exitAdmin()">← 返回博客</p>
     </div>
   </div>
@@ -149,7 +73,7 @@
       <div class="admin-brand">
         <div class="admin-brand-name" id="admin-brand-el">Ryoko</div>
         <div class="admin-brand-sub">Admin</div>
-        <div id="sync-indicator" style="margin-top:8px;font-size:10px;padding:4px 8px;border-radius:4px;background:rgba(249,115,22,0.15);color:var(--orange);display:none">⚠ 有未同步改动</div>
+        <div id="sync-indicator" style="margin-top:8px;font-size:10px;padding:4px 8px;border-radius:4px;background:rgba(79,156,249,0.15);color:var(--blue);display:block">☁ Firestore 配置存储已启用</div>
       </div>
       <nav class="admin-nav">
         <div class="anav active" data-panel="dashboard"><span>◈</span>数据看板</div>
@@ -304,40 +228,27 @@
       <section class="apanel" id="panel-tools">
         <h2 class="atitle">工具箱</h2><p class="asub">跨设备同步 / RSS / Sitemap / Giscus / 统计</p>
         <div class="acard" style="border-color:rgba(79,156,249,0.4);background:rgba(79,156,249,0.06);margin-bottom:16px">
-          <div class="acard-title" style="color:var(--blue)">★ 跨设备同步（重要）</div>
-          <p style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:16px">所有设置只存在当前浏览器。要在所有设备生效：<br>① 点按钮下载文件 ② 上传覆盖 GitHub 仓库同名文件 ③ 等 1~2 分钟</p>
+          <div class="acard-title" style="color:var(--blue)">★ 配置持久化</div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:16px">站点设置已改为优先从 Firestore 读取，并在后台修改后直接写回远端配置。<br>导出按钮仅保留为本地备份用途。</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn-primary" onclick="downloadConfigJson()">📥 导出 config.json（设置 + 密码）</button>
+            <button class="btn-primary" onclick="downloadConfigJson()">📥 导出 config.json（本地备份）</button>
             <button class="btn-primary" onclick="downloadPostsJson()" style="background:linear-gradient(135deg,var(--cyan),var(--blue))">📥 导出 posts.json（所有文章）</button>
           </div>
         </div>
         <div class="acard" style="margin-bottom:14px"><div class="acard-title">RSS Feed</div><p style="font-size:13px;color:var(--muted);margin-bottom:14px">下载后放入仓库根目录，命名 <code style="color:var(--cyan)">rss.xml</code>。</p><button class="btn-sm" onclick="downloadRSS()">⬇ 生成 rss.xml</button></div>
         <div class="acard" style="margin-bottom:14px"><div class="acard-title">Sitemap</div><p style="font-size:13px;color:var(--muted);margin-bottom:14px">下载后放入仓库根目录，命名 <code style="color:var(--cyan)">sitemap.xml</code>。</p><button class="btn-sm" onclick="downloadSitemap()">⬇ 生成 sitemap.xml</button></div>
-        <div class="acard" style="margin-bottom:14px">
-          <div class="acard-title">Giscus 评论（备用）</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Firebase 未配置时使用。前往 <a href="https://giscus.app" target="_blank" style="color:var(--blue)">giscus.app</a> 获取参数。</p>
-          <div class="fgrid">
-            <div class="fg"><label>GitHub Repo</label><input id="g-repo" class="fi" placeholder="username/repo"></div>
-            <div class="fg"><label>Repo ID</label><input id="g-repo-id" class="fi" placeholder="R_kgDO..."></div>
-            <div class="fg"><label>Category</label><input id="g-cat" class="fi" placeholder="General"></div>
-            <div class="fg"><label>Category ID</label><input id="g-cat-id" class="fi" placeholder="DIC_kwDO..."></div>
-            <div class="fg full"><label class="tgl-label" style="margin-top:4px"><input type="checkbox" id="g-enabled" class="tgl-cb"> 启用 Giscus</label></div>
-          </div>
-          <button class="btn-sm" style="margin-top:14px" onclick="saveGiscus()">保存评论配置</button>
-        </div>
         <div class="acard"><div class="acard-title">网站统计</div><div id="stats-detail" style="font-size:13px;color:var(--muted);line-height:2.2"></div><button class="btn-ghost sm" style="margin-top:12px" onclick="clearStats()">清除统计数据</button></div>
       </section>
 
       <!-- PASSWORD -->
       <section class="apanel" id="panel-password">
-        <h2 class="atitle">修改密码</h2>
-        <p class="asub">密码以 SHA-256 哈希存在 config.json，修改后自动下载新文件，提交到 GitHub 全设备生效</p>
-        <div class="acard" style="margin-bottom:14px;padding:14px 18px;background:rgba(249,115,22,0.07);border-color:rgba(249,115,22,0.3)"><span style="font-size:13px;color:var(--orange)">⚠️ 修改后请立即提交到 GitHub，否则其他设备密码仍为旧密码</span></div>
-        <div class="acard" style="max-width:380px">
-          <div class="fg" style="margin-bottom:10px"><label>当前密码</label><input id="pwd-cur" class="fi" type="password"></div>
-          <div class="fg" style="margin-bottom:10px"><label>新密码（≥6位）</label><input id="pwd-new" class="fi" type="password"></div>
-          <div class="fg" style="margin-bottom:18px"><label>确认新密码</label><input id="pwd-cfm" class="fi" type="password"></div>
-          <button class="btn-primary" onclick="changePassword()">更新密码</button>
+        <h2 class="atitle">管理员访问</h2>
+        <p class="asub">后台仅支持隐藏路由 + Firebase 管理员账号登录</p>
+        <div class="acard" style="margin-bottom:14px;padding:14px 18px;background:rgba(79,156,249,0.07);border-color:rgba(79,156,249,0.3)"><span style="font-size:13px;color:var(--blue)">⚠️ 首页不再展示后台入口，请通过隐藏路由访问管理界面</span></div>
+        <div class="acard" style="max-width:520px">
+          <div class="fg" style="margin-bottom:10px"><label>隐藏路由</label><input id="admin-route" class="fi" placeholder="manage-ryoko"></div>
+          <div class="fg" style="margin-bottom:18px"><label>访问地址预览</label><div id="admin-route-preview" class="fi" style="min-height:42px;display:flex;align-items:center"></div></div>
+          <button class="btn-primary" onclick="saveAdminAccess()">保存隐藏入口</button>
         </div>
       </section>
 
@@ -358,10 +269,7 @@
         <input id="search-input" class="search-input" type="search" placeholder="搜索…" autocomplete="off" oninput="doSearch(this.value)">
         <div id="search-results" class="search-results" style="display:none"></div>
       </div>
-      <!-- F001: User nav area -->
-      <div id="user-nav-area" class="user-nav-area"></div>
       <button class="icon-btn" onclick="toggleTheme()" title="切换主题">☾</button>
-      <button class="nav-admin-btn" onclick="openAdmin()">管理</button>
     </div>
   </div>
 </header>
@@ -420,7 +328,6 @@
   <!-- F002: Tab bar -->
   <div class="tabs-bar">
     <button class="tab-btn active" data-tab="official">📝 官方博客</button>
-    <button class="tab-btn" data-tab="community">🌐 社区广场</button>
   </div>
 
   <!-- Official section -->
@@ -459,22 +366,6 @@
     </div>
   </div>
 
-  <!-- F002: Community section -->
-  <div id="community-section" style="display:none">
-    <div class="comm-toolbar">
-      <div class="filter-bar" id="comm-filter-bar" style="flex:1">
-        <button class="fbtn active" data-cat="all" onclick="filterCommCat('all')">全部</button>
-        <button class="fbtn" data-cat="tech" onclick="filterCommCat('tech')">技术</button>
-        <button class="fbtn" data-cat="design" onclick="filterCommCat('design')">设计</button>
-        <button class="fbtn" data-cat="life" onclick="filterCommCat('life')">生活</button>
-        <button class="fbtn" data-cat="think" onclick="filterCommCat('think')">思考</button>
-        <button class="fbtn" data-cat="other" onclick="filterCommCat('other')">其他</button>
-      </div>
-      <button class="btn-primary" onclick="openPostCreate()" style="white-space:nowrap">✏️ 发布文章</button>
-    </div>
-    <div id="community-grid" class="posts-grid" style="margin-top:20px"></div>
-    <div id="comm-pagination" class="pagination"></div>
-  </div>
 </div>
 
 <!-- ABOUT -->
@@ -519,22 +410,10 @@
       <div class="modal-text" id="modal-text"></div>
       <div class="modal-tags" id="modal-tags"></div>
       <hr class="modal-hr">
-      <!-- F003: Comment area (Firebase or Giscus fallback) -->
-      <div id="comment-area"></div>
-      <div id="giscus-container"></div>
     </div>
   </article>
 </div>
 
-<script>
-  // Community filter helper (defined inline for simplicity)
-  function filterCommCat(cat) {
-    document.querySelectorAll('#comm-filter-bar .fbtn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
-    const posts = Community.all();
-    const filtered = cat === 'all' ? posts : posts.filter(p => p.cat === cat);
-    Render.renderCommunityGrid(filtered);
-  }
-</script>
 <script src="./app.js"></script>
 </body>
 </html>
