@@ -774,17 +774,10 @@
     };
     return { apply, toggle, initDark, PRESETS, FONTS };
   })();
-  var FX = window.__RYOKO_FX__;
-  var FX_DEFS = window.__RYOKO_FX_DEFS__ || [
-    { key: "spotlight", icon: "\u{1F526}", name: "\u805A\u5149\u706F", desc: "\u9F20\u6807\u8DDF\u968F\u5149\u6655+\u70B9\u9635", ik: "spotlightInt" },
-    { key: "aurora", icon: "\u{1F30C}", name: "\u6781\u5149\u80CC\u666F", desc: "Hero \u6D41\u52A8\u5F69\u8272\u5149\u7403", ik: "auroraInt" },
-    { key: "particles", icon: "\u2726", name: "\u6D6E\u52A8\u7C92\u5B50", desc: "\u5168\u9875\u7C92\u5B50+\u9F20\u6807\u5438\u9644(O001)", ik: "particlesInt" },
-    { key: "stars", icon: "\u{1F320}", name: "\u661F\u5C18\u80CC\u666F", desc: "\u7EC6\u5BC6\u95EA\u70C1\u661F\u70B9", ik: "starsInt" },
-    { key: "trail", icon: "\u{1F30A}", name: "\u9F20\u6807\u62D6\u5C3E", desc: "\u9F20\u6807\u5212\u8FC7\u53D1\u5149\u8F68\u8FF9", ik: "trailInt" },
-    { key: "snow", icon: "\u2744\uFE0F", name: "\u98D8\u843D\u96EA\u82B1", desc: "\u8F7B\u67D4\u98D8\u843D\u7C92\u5B50", ik: "snowInt" },
-    { key: "glass", icon: "\u{1FAE7}", name: "\u78E8\u7802\u73BB\u7483", desc: "\u4E3A\u5361\u7247\u548C\u4FA7\u680F\u542F\u7528\u73BB\u7483\u6A21\u7CCA\u5C42", ik: "glassInt", params: [{ key: "glassBlur", label: "\u6A21\u7CCA\u5F3A\u5EA6", type: "range", min: 4, max: 32, step: 1 }, { key: "glassOpacity", label: "\u900F\u660E\u5EA6", type: "range", min: 0.08, max: 0.45, step: 0.01 }] },
-    { key: "reveal", icon: "\u270D\uFE0F", name: "\u624B\u5199\u663E\u73B0", desc: "\u6807\u9898\u4E0E\u5361\u7247\u4EE5\u8F7B\u91CF\u7B14\u89E6\u5F0F\u52A8\u6548\u51FA\u73B0", ik: "revealInt", params: [{ key: "revealDistance", label: "\u4F4D\u79FB\u8DDD\u79BB", type: "range", min: 4, max: 48, step: 1 }, { key: "revealStagger", label: "\u9519\u5CF0\u65F6\u957F", type: "range", min: 20, max: 220, step: 10 }] }
-  ];
+  var FX = window.__RYOKO_FX__ || createFxApi();
+  window.__RYOKO_FX__ = FX;
+  var FX_DEFS = window.__RYOKO_FX_DEFS__ || EFFECT_DEFS;
+  window.__RYOKO_FX_DEFS__ = FX_DEFS;
   var MD = /* @__PURE__ */ (() => {
     const render = (text, format) => {
       if (!text) return "";
