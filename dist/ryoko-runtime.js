@@ -1242,44 +1242,57 @@ ${urls.map((u2) => `  <url>
         $2("pwd-input").value = "";
       }
     };
-    const open = () => {
+    const getAdminToken = () => (Config.get("auth.adminPath") || "manage-ryoko").trim().replace(/^[/?#]+/, "");
+    const getAdminAccessUrl = () => {
+      const url = new URL(location.origin + location.pathname);
+      url.searchParams.set("admin", getAdminToken());
+      return url.toString();
+    };
+    const syncAdminAccessUrl = (visible) => {
+      const url = new URL(location.href);
+      if (visible) url.searchParams.set("admin", getAdminToken());
+      else url.searchParams.delete("admin");
+      history[visible ? "pushState" : "replaceState"]({}, "", `${url.pathname}${url.search}${url.hash}`);
+    };
+    const open = (syncUrl = true) => {
       showLogin();
       $2("admin-overlay").classList.add("vis");
       $2("pwd-input").value = "";
       $2("login-err").style.display = "none";
+      if (syncUrl) syncAdminAccessUrl(true);
     };
     const openIfRouteMatches = () => {
-      const expected = "/" + (Config.get("auth.adminPath") || "manage-ryoko").replace(/^\/+/, "");
-      if (location.pathname === expected) {
-        open();
+      if (new URLSearchParams(location.search).get("admin") === getAdminToken()) {
+        open(false);
         return true;
       }
       return false;
     };
     const updateAdminRoutePreview = () => {
-      const path = (Config.get("auth.adminPath") || "manage-ryoko").replace(/^\/+/, "");
+      const path = getAdminToken();
       const el = $2("admin-route-preview");
-      if (el) el.textContent = `${location.origin}/${path}`;
+      if (el) el.textContent = getAdminAccessUrl();
       const input = $2("admin-route");
       if (input) input.value = path;
     };
     const saveAdminAccess = async () => {
       const input = $2("admin-route");
-      const raw = (input?.value || "").trim().replace(/^\/+/, "");
+      const raw = (input?.value || "").trim().replace(/^[/?#]+/, "");
       if (!raw) {
-        toast("\u26A0\uFE0F \u8BF7\u586B\u5199\u9690\u85CF\u8DEF\u7531");
+        toast("\u26A0\uFE0F \u8BF7\u586B\u5199\u9690\u85CF\u5165\u53E3\u6807\u8BC6");
         return;
       }
       await Config.saveSection("auth", { ...Config.get("auth"), adminEmail: Config.get("auth.adminEmail"), adminPath: raw });
       updateAdminRoutePreview();
-      toast("\u2705 \u9690\u85CF\u8DEF\u7531\u5DF2\u4FDD\u5B58");
+      if ($2("admin-overlay")?.classList.contains("vis")) syncAdminAccessUrl(true);
+      toast("\u2705 \u9690\u85CF\u5165\u53E3\u5DF2\u4FDD\u5B58");
     };
     const goToAdminRoute = () => {
-      const path = (Config.get("auth.adminPath") || "manage-ryoko").replace(/^\/+/, "");
-      location.pathname = "/" + path;
+      open();
     };
     const exit = async () => {
       $2("admin-overlay").classList.remove("vis");
+      syncAdminAccessUrl(false);
       await Config.persist();
       Render.applyConfig(Config.all());
       FX.applyAll(Config.get("effects") || {});

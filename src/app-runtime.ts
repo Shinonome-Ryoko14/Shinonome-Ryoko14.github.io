@@ -573,33 +573,43 @@ const Admin = (() => {
       $('pwd-input').value='';
     }
   };
-  const open=()=>{showLogin();$('admin-overlay').classList.add('vis');$('pwd-input').value='';$('login-err').style.display='none';};
+  const getAdminToken=()=> (Config.get('auth.adminPath') || 'manage-ryoko').trim().replace(/^[/?#]+/, '');
+  const getAdminAccessUrl=()=>{
+    const url=new URL(location.origin + location.pathname);
+    url.searchParams.set('admin',getAdminToken());
+    return url.toString();
+  };
+  const syncAdminAccessUrl=visible=>{
+    const url=new URL(location.href);
+    if(visible) url.searchParams.set('admin',getAdminToken());
+    else url.searchParams.delete('admin');
+    history[visible?'pushState':'replaceState']({},'',`${url.pathname}${url.search}${url.hash}`);
+  };
+  const open=(syncUrl=true)=>{showLogin();$('admin-overlay').classList.add('vis');$('pwd-input').value='';$('login-err').style.display='none';if(syncUrl)syncAdminAccessUrl(true);};
   const openIfRouteMatches=()=>{
-    const expected='/' + (Config.get('auth.adminPath') || 'manage-ryoko').replace(/^\/+/, '');
-    if(location.pathname===expected){ open(); return true; }
+    if(new URLSearchParams(location.search).get('admin')===getAdminToken()){ open(false); return true; }
     return false;
   };
   const updateAdminRoutePreview=()=>{
-    const path=(Config.get('auth.adminPath') || 'manage-ryoko').replace(/^\/+/, '');
+    const path=getAdminToken();
     const el=$('admin-route-preview');
-    if(el) el.textContent=`${location.origin}/${path}`;
+    if(el) el.textContent=getAdminAccessUrl();
     const input=$('admin-route');
     if(input) input.value=path;
   };
   const saveAdminAccess=async()=>{
     const input=$('admin-route');
-    const raw=(input?.value || '').trim().replace(/^\/+/, '');
-    if(!raw){toast('⚠️ 请填写隐藏路由');return;}
+    const raw=(input?.value || '').trim().replace(/^[/?#]+/, '');
+    if(!raw){toast('⚠️ 请填写隐藏入口标识');return;}
     await Config.saveSection('auth',{...Config.get('auth'),adminEmail:Config.get('auth.adminEmail'),adminPath:raw});
     updateAdminRoutePreview();
-    toast('✅ 隐藏路由已保存');
+    if($('admin-overlay')?.classList.contains('vis')) syncAdminAccessUrl(true);
+    toast('✅ 隐藏入口已保存');
   };
-  const goToAdminRoute=()=>{
-    const path=(Config.get('auth.adminPath') || 'manage-ryoko').replace(/^\/+/, '');
-    location.pathname='/' + path;
-  };
+  const goToAdminRoute=()=>{ open(); };
   const exit=async()=>{
     $('admin-overlay').classList.remove('vis');
+    syncAdminAccessUrl(false);
     await Config.persist();
     Render.applyConfig(Config.all());
     FX.applyAll(Config.get('effects')||{});
