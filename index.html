@@ -123,9 +123,31 @@
             <div class="fg" style="justify-content:flex-end;padding-top:22px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--muted)"><input type="checkbox" id="f-featured" style="accent-color:var(--blue)"> 设为精选</label></div>
             <div class="fg full">
               <label>正文</label>
-              <div class="ced-wrap">
-                <div class="ced-bar"><span class="ced-dot r"></span><span class="ced-dot y"></span><span class="ced-dot g"></span><span style="margin-left:10px;font-size:11px;color:var(--muted)">markdown</span></div>
-                <textarea id="f-content" class="fi code-ta" rows="14" placeholder="# 标题&#10;&#10;正文支持 **Markdown**..."></textarea>
+              <div class="editor-toolbar" id="editor-toolbar">
+                <div class="editor-tools">
+                  <button type="button" class="btn-ghost sm" onclick="mdInsert('heading')">H2</button>
+                  <button type="button" class="btn-ghost sm" onclick="mdInsert('bold')">粗体</button>
+                  <button type="button" class="btn-ghost sm" onclick="mdInsert('italic')">斜体</button>
+                  <button type="button" class="btn-ghost sm" onclick="mdInsert('code')">代码块</button>
+                  <button type="button" class="btn-ghost sm" onclick="mdInsert('inlineMath')">行内公式</button>
+                  <button type="button" class="btn-ghost sm" onclick="mdInsert('blockMath')">块公式</button>
+                  <button type="button" class="btn-ghost sm" onclick="mdInsert('image')">图片</button>
+                </div>
+                <div class="editor-modes">
+                  <button type="button" class="editor-mode-btn" data-editor-mode="edit" onclick="setEditorMode('edit')">Edit</button>
+                  <button type="button" class="editor-mode-btn active" data-editor-mode="split" onclick="setEditorMode('split')">Split</button>
+                  <button type="button" class="editor-mode-btn" data-editor-mode="preview" onclick="setEditorMode('preview')">Preview</button>
+                </div>
+              </div>
+              <div class="editor-shell" id="editor-shell" data-mode="split">
+                <div class="ced-wrap editor-pane editor-input-pane">
+                  <div class="ced-bar"><span class="ced-dot r"></span><span class="ced-dot y"></span><span class="ced-dot g"></span><span id="editor-format-badge" style="margin-left:10px;font-size:11px;color:var(--muted)">markdown</span></div>
+                  <textarea id="f-content" class="fi code-ta" rows="14" placeholder="# 标题&#10;&#10;正文支持 **Markdown**、LaTeX、代码高亮和图片 URL..." oninput="refreshArticlePreview()"></textarea>
+                </div>
+                <div class="editor-preview-wrap editor-pane">
+                  <div class="ced-bar"><span class="ced-dot r"></span><span class="ced-dot y"></span><span class="ced-dot g"></span><span style="margin-left:10px;font-size:11px;color:var(--muted)">preview</span></div>
+                  <div id="article-preview" class="editor-preview modal-text"><div class="editor-empty">预览将在这里显示</div></div>
+                </div>
               </div>
             </div>
           </div>

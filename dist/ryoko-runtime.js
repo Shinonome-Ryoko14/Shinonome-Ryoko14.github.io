@@ -260,6 +260,69 @@
     }
   };
 
+  // src/fx/plugins/glass.ts
+  var glassPlugin = {
+    id: "glass",
+    start(intensity, _context) {
+      document.body.classList.add("fx-glass-on");
+      document.documentElement.style.setProperty("--glass-intensity", String(Math.max(1, intensity || 5)));
+    },
+    stop(_context) {
+      document.body.classList.remove("fx-glass-on");
+    }
+  };
+
+  // src/fx/plugins/reveal.ts
+  var SELECTOR = [
+    ".hero-badge",
+    ".hero-title",
+    ".hero-sub",
+    ".post-card",
+    ".widget",
+    ".section-title",
+    ".about-text p",
+    ".skill-item"
+  ].join(",");
+  function readNumber(name, fallback) {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+  }
+  var revealPlugin = {
+    id: "reveal",
+    start(intensity, context) {
+      const distance = readNumber("--reveal-distance", 18);
+      const stagger = readNumber("--reveal-stagger", 70);
+      const duration = Math.max(220, Math.round((intensity || 5) * 95));
+      const nodes = Array.from(document.querySelectorAll(SELECTOR));
+      const timers = [];
+      document.body.classList.add("fx-reveal-on");
+      nodes.forEach((node, index) => {
+        node.classList.add("fx-reveal-item");
+        node.style.opacity = "0";
+        node.style.transform = `translateY(${distance}px)`;
+        node.style.transition = `opacity ${duration}ms ease, transform ${duration}ms cubic-bezier(.16,1,.3,1)`;
+        timers.push(window.setTimeout(() => {
+          node.style.opacity = "1";
+          node.style.transform = "translateY(0)";
+        }, index * stagger));
+      });
+      context.onCleanup("reveal", () => {
+        timers.forEach((timer) => window.clearTimeout(timer));
+      });
+    },
+    stop(context) {
+      context.runCleanup("reveal");
+      document.body.classList.remove("fx-reveal-on");
+      document.querySelectorAll(SELECTOR).forEach((node) => {
+        node.classList.remove("fx-reveal-item");
+        node.style.opacity = "";
+        node.style.transform = "";
+        node.style.transition = "";
+      });
+    }
+  };
+
   // src/fx/engine.ts
   var plugins = {
     spotlight: spotlightPlugin,
@@ -267,7 +330,9 @@
     particles: particlesPlugin,
     stars: starsPlugin,
     trail: trailPlugin,
-    snow: snowPlugin
+    snow: snowPlugin,
+    glass: glassPlugin,
+    reveal: revealPlugin
   };
   function createMouseState() {
     const mouse = { x: -9999, y: -9999, still: false };
@@ -337,6 +402,16 @@
         plugins[name].stop(context);
       });
     };
+    const applyDomEffects = (fx) => {
+      document.documentElement.style.setProperty("--glass-blur", `${Number(fx.glassBlur ?? 18)}px`);
+      document.documentElement.style.setProperty("--glass-opacity", String(Number(fx.glassOpacity ?? 0.18)));
+      document.documentElement.style.setProperty("--reveal-distance", String(Number(fx.revealDistance ?? 18)));
+      document.documentElement.style.setProperty("--reveal-stagger", String(Number(fx.revealStagger ?? 70)));
+      if (fx.glass) plugins.glass.start(Number(fx.glassInt ?? 5), context);
+      else plugins.glass.stop(context);
+      if (fx.reveal) plugins.reveal.start(Number(fx.revealInt ?? 5), context);
+      else plugins.reveal.stop(context);
+    };
     return {
       applyAll(fx) {
         stopCanvasEffects();
@@ -348,6 +423,7 @@
         if (fx.stars) plugins.stars.start(Number(fx.starsInt ?? 4), context);
         if (fx.trail) plugins.trail.start(Number(fx.trailInt ?? 5), context);
         if (fx.snow) plugins.snow.start(Number(fx.snowInt ?? 3), context);
+        applyDomEffects(fx);
       },
       toggle(name, on, intensity) {
         const plugin = plugins[name];
@@ -369,7 +445,29 @@
     { key: "particles", icon: "\u2726", name: "\u6D6E\u52A8\u7C92\u5B50", desc: "\u5168\u9875\u7C92\u5B50+\u9F20\u6807\u5438\u9644(O001)", ik: "particlesInt" },
     { key: "stars", icon: "\u{1F320}", name: "\u661F\u5C18\u80CC\u666F", desc: "\u7EC6\u5BC6\u95EA\u70C1\u661F\u70B9", ik: "starsInt" },
     { key: "trail", icon: "\u{1F30A}", name: "\u9F20\u6807\u62D6\u5C3E", desc: "\u9F20\u6807\u5212\u8FC7\u53D1\u5149\u8F68\u8FF9", ik: "trailInt" },
-    { key: "snow", icon: "\u2744\uFE0F", name: "\u98D8\u843D\u96EA\u82B1", desc: "\u8F7B\u67D4\u98D8\u843D\u7C92\u5B50", ik: "snowInt" }
+    { key: "snow", icon: "\u2744\uFE0F", name: "\u98D8\u843D\u96EA\u82B1", desc: "\u8F7B\u67D4\u98D8\u843D\u7C92\u5B50", ik: "snowInt" },
+    {
+      key: "glass",
+      icon: "\u{1FAE7}",
+      name: "\u78E8\u7802\u73BB\u7483",
+      desc: "\u4E3A\u5361\u7247\u548C\u4FA7\u680F\u542F\u7528\u73BB\u7483\u6A21\u7CCA\u5C42",
+      ik: "glassInt",
+      params: [
+        { key: "glassBlur", label: "\u6A21\u7CCA\u5F3A\u5EA6", type: "range", min: 4, max: 32, step: 1 },
+        { key: "glassOpacity", label: "\u900F\u660E\u5EA6", type: "range", min: 0.08, max: 0.45, step: 0.01 }
+      ]
+    },
+    {
+      key: "reveal",
+      icon: "\u270D\uFE0F",
+      name: "\u624B\u5199\u663E\u73B0",
+      desc: "\u6807\u9898\u4E0E\u5361\u7247\u4EE5\u8F7B\u91CF\u7B14\u89E6\u5F0F\u52A8\u6548\u51FA\u73B0",
+      ik: "revealInt",
+      params: [
+        { key: "revealDistance", label: "\u4F4D\u79FB\u8DDD\u79BB", type: "range", min: 4, max: 48, step: 1 },
+        { key: "revealStagger", label: "\u9519\u5CF0\u65F6\u957F", type: "range", min: 20, max: 220, step: 10 }
+      ]
+    }
   ];
 
   // src/compat/globals.ts
@@ -409,7 +507,7 @@
       hero: { line1: "Ryoko's", line2: "Personal Blog", subtitle: "\u8BB0\u5F55\u6280\u672F\u3001\u8BBE\u8BA1\u4E0E\u751F\u6D3B\u7684\u4EA4\u6C47\u5904", badge: "Personal Blog \xB7 Code and Record", btn1: "\u5F00\u59CB\u9605\u8BFB", btn2: "\u4E86\u89E3\u6211", bgImage: "", bgOpacity: 0.5, showCode: true },
       theme: { preset: "geek", font: "inter", blue: "#4f9cf9", cyan: "#22d3ee" },
       social: [],
-      effects: { spotlight: false, spotlightInt: 5, aurora: true, auroraInt: 6, particles: false, particlesInt: 4, stars: true, starsInt: 4, trail: false, trailInt: 5, snow: false, snowInt: 3 },
+      effects: { spotlight: false, spotlightInt: 5, aurora: true, auroraInt: 6, particles: false, particlesInt: 4, stars: true, starsInt: 4, trail: false, trailInt: 5, snow: false, snowInt: 3, glass: false, glassInt: 5, glassBlur: 18, glassOpacity: 0.18, reveal: false, revealInt: 5, revealDistance: 18, revealStagger: 70 },
       about: { p1: "\u6211\u76F8\u4FE1\uFF0C\u6700\u597D\u7684\u6587\u7AE0\u5E94\u8BE5\u50CF\u8BD7\u6B4C\u4E00\u6837\u2014\u2014\u7CBE\u51C6\u3001\u6709\u529B\u3001\u7559\u6709\u4F59\u5473\u3002", p2: "\u8FD9\u91CC\u662F\u6211\u4E0E\u4E16\u754C\u5BF9\u8BDD\u7684\u5730\u65B9\u3002" },
       skills: [{ label: "\u524D\u7AEF\u5F00\u53D1", pct: 92 }, { label: "UI/UX \u8BBE\u8BA1", pct: 84 }, { label: "\u5185\u5BB9\u521B\u4F5C", pct: 88 }, { label: "\u7CFB\u7EDF\u67B6\u6784", pct: 76 }],
       footer: { copy: "\xA9 2025 Ryoko. All rights reserved.", sub: "Built with \u2726 and curiosity" },
@@ -666,7 +764,16 @@
     return { apply, toggle, initDark, PRESETS, FONTS };
   })();
   var FX = window.__RYOKO_FX__;
-  var FX_DEFS = window.__RYOKO_FX_DEFS__ || [{ key: "spotlight", icon: "\u{1F526}", name: "\u805A\u5149\u706F", desc: "\u9F20\u6807\u8DDF\u968F\u5149\u6655+\u70B9\u9635", ik: "spotlightInt" }, { key: "aurora", icon: "\u{1F30C}", name: "\u6781\u5149\u80CC\u666F", desc: "Hero \u6D41\u52A8\u5F69\u8272\u5149\u7403", ik: "auroraInt" }, { key: "particles", icon: "\u2726", name: "\u6D6E\u52A8\u7C92\u5B50", desc: "\u5168\u9875\u7C92\u5B50+\u9F20\u6807\u5438\u9644(O001)", ik: "particlesInt" }, { key: "stars", icon: "\u{1F320}", name: "\u661F\u5C18\u80CC\u666F", desc: "\u7EC6\u5BC6\u95EA\u70C1\u661F\u70B9", ik: "starsInt" }, { key: "trail", icon: "\u{1F30A}", name: "\u9F20\u6807\u62D6\u5C3E", desc: "\u9F20\u6807\u5212\u8FC7\u53D1\u5149\u8F68\u8FF9", ik: "trailInt" }, { key: "snow", icon: "\u2744\uFE0F", name: "\u98D8\u843D\u96EA\u82B1", desc: "\u8F7B\u67D4\u98D8\u843D\u7C92\u5B50", ik: "snowInt" }];
+  var FX_DEFS = window.__RYOKO_FX_DEFS__ || [
+    { key: "spotlight", icon: "\u{1F526}", name: "\u805A\u5149\u706F", desc: "\u9F20\u6807\u8DDF\u968F\u5149\u6655+\u70B9\u9635", ik: "spotlightInt" },
+    { key: "aurora", icon: "\u{1F30C}", name: "\u6781\u5149\u80CC\u666F", desc: "Hero \u6D41\u52A8\u5F69\u8272\u5149\u7403", ik: "auroraInt" },
+    { key: "particles", icon: "\u2726", name: "\u6D6E\u52A8\u7C92\u5B50", desc: "\u5168\u9875\u7C92\u5B50+\u9F20\u6807\u5438\u9644(O001)", ik: "particlesInt" },
+    { key: "stars", icon: "\u{1F320}", name: "\u661F\u5C18\u80CC\u666F", desc: "\u7EC6\u5BC6\u95EA\u70C1\u661F\u70B9", ik: "starsInt" },
+    { key: "trail", icon: "\u{1F30A}", name: "\u9F20\u6807\u62D6\u5C3E", desc: "\u9F20\u6807\u5212\u8FC7\u53D1\u5149\u8F68\u8FF9", ik: "trailInt" },
+    { key: "snow", icon: "\u2744\uFE0F", name: "\u98D8\u843D\u96EA\u82B1", desc: "\u8F7B\u67D4\u98D8\u843D\u7C92\u5B50", ik: "snowInt" },
+    { key: "glass", icon: "\u{1FAE7}", name: "\u78E8\u7802\u73BB\u7483", desc: "\u4E3A\u5361\u7247\u548C\u4FA7\u680F\u542F\u7528\u73BB\u7483\u6A21\u7CCA\u5C42", ik: "glassInt", params: [{ key: "glassBlur", label: "\u6A21\u7CCA\u5F3A\u5EA6", type: "range", min: 4, max: 32, step: 1 }, { key: "glassOpacity", label: "\u900F\u660E\u5EA6", type: "range", min: 0.08, max: 0.45, step: 0.01 }] },
+    { key: "reveal", icon: "\u270D\uFE0F", name: "\u624B\u5199\u663E\u73B0", desc: "\u6807\u9898\u4E0E\u5361\u7247\u4EE5\u8F7B\u91CF\u7B14\u89E6\u5F0F\u52A8\u6548\u51FA\u73B0", ik: "revealInt", params: [{ key: "revealDistance", label: "\u4F4D\u79FB\u8DDD\u79BB", type: "range", min: 4, max: 48, step: 1 }, { key: "revealStagger", label: "\u9519\u5CF0\u65F6\u957F", type: "range", min: 20, max: 220, step: 10 }] }
+  ];
   var MD = /* @__PURE__ */ (() => {
     const render = (text, format) => {
       if (!text) return "";
@@ -683,7 +790,27 @@
       }
       return `<pre><code>${text.replace(/</g, "&lt;")}</code></pre>`;
     };
-    return { render };
+    const enhance = (container) => {
+      if (!container) return;
+      if (window.hljs) container.querySelectorAll("pre code").forEach((b) => {
+        try {
+          hljs.highlightElement(b);
+        } catch {
+        }
+      });
+      if (window.renderMathInElement) {
+        try {
+          renderMathInElement(container, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false });
+        } catch {
+        }
+      }
+    };
+    const renderInto = (container, text, format) => {
+      if (!container) return;
+      container.innerHTML = render(text || "", format || "markdown");
+      enhance(container);
+    };
+    return { render, enhance, renderInto };
   })();
   var TOC = /* @__PURE__ */ (() => {
     const build = (container) => {
@@ -952,19 +1079,7 @@ ${urls.map((u2) => `  <url>
       $2("modal-title").textContent = post.title;
       const html = MD.render(post.content || "", post.format || "markdown");
       const mt = $2("modal-text");
-      if (mt) mt.innerHTML = html;
-      if (mt && window.hljs) mt.querySelectorAll("pre code").forEach((b) => {
-        try {
-          hljs.highlightElement(b);
-        } catch {
-        }
-      });
-      if (mt && window.renderMathInElement) {
-        try {
-          renderMathInElement(mt, { delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }], throwOnError: false });
-        } catch {
-        }
-      }
+      if (mt) MD.renderInto(mt, post.content || "", post.format || "markdown");
       if (mt) TOC.build(mt);
       $2("modal-tags").innerHTML = (post.tags || []).map((t) => `<span class="modal-tag">${t}</span>`).join("");
       $2("post-modal").classList.add("open");
@@ -1024,6 +1139,80 @@ ${urls.map((u2) => `  <url>
   var Admin = /* @__PURE__ */ (() => {
     const $2 = (id) => document.getElementById(id);
     let editId = null;
+    let editorMode = "split";
+    let previewTimer = null;
+    const updateEditorModeUi = () => {
+      const shell = $2("editor-shell");
+      if (shell) shell.dataset.mode = editorMode;
+      document.querySelectorAll("[data-editor-mode]").forEach((btn) => btn.classList.toggle("active", btn.dataset.editorMode === editorMode));
+    };
+    const setEditorMode2 = (mode) => {
+      editorMode = mode || "split";
+      updateEditorModeUi();
+      refreshArticlePreview2(true);
+    };
+    const updateEditorFormatBadge = () => {
+      const badge = $2("editor-format-badge");
+      if (badge) badge.textContent = ($2("f-format")?.value || "markdown").toLowerCase();
+    };
+    const refreshArticlePreview2 = (immediate = false) => {
+      const run = () => {
+        updateEditorFormatBadge();
+        const preview = $2("article-preview");
+        if (!preview) return;
+        const content = $2("f-content")?.value || "";
+        const format = $2("f-format")?.value || "markdown";
+        if (!content.trim()) {
+          preview.innerHTML = '<div class="editor-empty">\u9884\u89C8\u5C06\u5728\u8FD9\u91CC\u663E\u793A</div>';
+          return;
+        }
+        MD.renderInto(preview, content, format);
+      };
+      if (previewTimer) {
+        clearTimeout(previewTimer);
+        previewTimer = null;
+      }
+      if (immediate) {
+        run();
+        return;
+      }
+      previewTimer = setTimeout(run, 180);
+    };
+    const insertAround = (before, after = "", fallback = "") => {
+      const input = $2("f-content");
+      if (!input) return;
+      const start = input.selectionStart ?? 0;
+      const end = input.selectionEnd ?? 0;
+      const selected = input.value.slice(start, end) || fallback;
+      input.setRangeText(`${before}${selected}${after}`, start, end, "end");
+      input.focus();
+      refreshArticlePreview2();
+    };
+    const insertBlock = (text) => {
+      const input = $2("f-content");
+      if (!input) return;
+      const start = input.selectionStart ?? 0;
+      input.setRangeText(text, start, start, "end");
+      input.focus();
+      refreshArticlePreview2();
+    };
+    const insertMarkdown = (kind) => {
+      if (kind === "heading") return insertAround("## ", "", "\u5C0F\u8282\u6807\u9898");
+      if (kind === "bold") return insertAround("**", "**", "\u91CD\u70B9");
+      if (kind === "italic") return insertAround("*", "*", "\u5F3A\u8C03");
+      if (kind === "code") return insertBlock('\n```ts\nconst message = "hello";\n```\n');
+      if (kind === "inlineMath") return insertAround("$", "$", "a^2+b^2=c^2");
+      if (kind === "blockMath") return insertBlock("\n$$\n\\int_0^1 x^2 \\, dx\n$$\n");
+      if (kind === "image") return insertBlock("\n![\u56FE\u7247\u63CF\u8FF0](https://example.com/image.png)\n");
+    };
+    const fxParamLabel = (value, step) => {
+      const decimals = String(step || "").includes(".") ? String(step).split(".")[1].length : 0;
+      return Number(value).toFixed(decimals).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+    };
+    const renderFxParams = (fxDef, fx) => {
+      if (!fxDef.params?.length) return '<div class="fx-note">\u5F53\u524D\u6548\u679C\u652F\u6301\u5373\u65F6\u5F00\u5173\u4E0E\u5F3A\u5EA6\u8C03\u8282\u3002</div>';
+      return `<div class="fx-stack">${fxDef.params.map((param) => `<div class="fx-param"><div class="fx-param-top"><span>${param.label}</span><span class="fx-param-value" id="fx-val-${param.key}">${fxParamLabel(fx[param.key] ?? param.min ?? 0, param.step)}</span></div><input type="range" class="fx-r" id="fx-param-${param.key}" min="${param.min}" max="${param.max}" step="${param.step || 1}" value="${fx[param.key] ?? param.min ?? 0}" oninput="Admin.liveFxParam('${param.key}',this.value,'${param.step || 1}')"></div>`).join("")}</div>`;
+    };
     const showLogin = () => {
       $2("admin-login").style.display = "flex";
       $2("admin-app").style.display = "none";
@@ -1155,6 +1344,8 @@ ${urls.map((u2) => `  <url>
       $2("f-featured").checked = false;
       $2("art-form").style.display = "block";
       $2("admin-main").scrollTop = 0;
+      setEditorMode2("split");
+      refreshArticlePreview2(true);
     };
     const editArt = (id) => {
       const p = Posts.byId(id);
@@ -1173,6 +1364,8 @@ ${urls.map((u2) => `  <url>
       $2("f-featured").checked = !!p.featured;
       $2("art-form").style.display = "block";
       $2("admin-main").scrollTop = 0;
+      setEditorMode2("split");
+      refreshArticlePreview2(true);
     };
     const delArt = (id) => {
       if (!confirm("\u786E\u8BA4\u5220\u9664\uFF1F")) return;
@@ -1252,7 +1445,7 @@ ${urls.map((u2) => `  <url>
     };
     const loadFxForm = () => {
       const fx = Config.get("effects") || {};
-      $2("fx-grid").innerHTML = FX_DEFS.map((f) => `<div class="fx-card"><div class="fx-head"><div><div class="fx-name">${f.icon} ${f.name}</div><div class="fx-desc">${f.desc}</div></div><label class="tgl-label" style="flex-shrink:0"><input type="checkbox" class="tgl-cb" id="fx-${f.key}" ${fx[f.key] ? "checked" : ""} onchange="Admin.liveFx('${f.key}',this.checked)"></label></div><div class="fx-rl">\u5F3A\u5EA6</div><input type="range" class="fx-r" id="fx-int-${f.key}" min="1" max="10" value="${fx[f.ik] || 5}" oninput="Admin.liveFxInt('${f.ik}',+this.value)"></div>`).join("");
+      $2("fx-grid").innerHTML = FX_DEFS.map((f) => `<div class="fx-card"><div class="fx-head"><div><div class="fx-name">${f.icon} ${f.name}</div><div class="fx-desc">${f.desc}</div></div><label class="tgl-label" style="flex-shrink:0"><input type="checkbox" class="tgl-cb" id="fx-${f.key}" ${fx[f.key] ? "checked" : ""} onchange="Admin.liveFx('${f.key}',this.checked)"></label></div><div class="fx-rl">\u5F3A\u5EA6</div><input type="range" class="fx-r" id="fx-int-${f.key}" min="1" max="10" value="${fx[f.ik] || 5}" oninput="Admin.liveFxInt('${f.ik}',+this.value)">${renderFxParams(f, fx)}</div>`).join("");
     };
     const liveFx = async (k, on) => {
       await Config.save("effects." + k, on);
@@ -1260,12 +1453,24 @@ ${urls.map((u2) => `  <url>
     };
     const liveFxInt = async (ik, v) => {
       await Config.save("effects." + ik, v);
+      FX.applyAll(Config.get("effects") || {});
+    };
+    const liveFxParam = async (key, v, step = "1") => {
+      const num = Number(v);
+      const value = String(step).includes(".") ? num : num;
+      const valEl = $2("fx-val-" + key);
+      if (valEl) valEl.textContent = fxParamLabel(value, step);
+      await Config.save("effects." + key, value);
+      FX.applyAll(Config.get("effects") || {});
     };
     const saveEffects2 = async () => {
-      const fx = {};
+      const fx = { ...Config.get("effects") || {} };
       FX_DEFS.forEach((f) => {
         fx[f.key] = !!$2("fx-" + f.key)?.checked;
         fx[f.ik] = +($2("fx-int-" + f.key)?.value || 5);
+        (f.params || []).forEach((param) => {
+          fx[param.key] = String(param.step || 1).includes(".") ? Number($2("fx-param-" + param.key)?.value || 0) : +($2("fx-param-" + param.key)?.value || 0);
+        });
       });
       await Config.saveSection("effects", fx);
       FX.applyAll(fx);
@@ -1473,12 +1678,16 @@ ${urls.map((u2) => `  <url>
       delArt,
       saveArticle: saveArticle2,
       cancelForm: cancelForm2,
+      setEditorMode: setEditorMode2,
+      refreshArticlePreview: refreshArticlePreview2,
+      insertMarkdown,
       loadHero,
       previewBg: previewBg2,
       saveHero: saveHero2,
       loadFxForm,
       liveFx,
       liveFxInt,
+      liveFxParam,
       saveEffects: saveEffects2,
       addContact: addContact2,
       setC,
@@ -1617,6 +1826,15 @@ ${urls.map((u2) => `  <url>
   function saveArticle() {
     Admin.saveArticle();
   }
+  function setEditorMode(mode) {
+    Admin.setEditorMode(mode);
+  }
+  function refreshArticlePreview() {
+    Admin.refreshArticlePreview();
+  }
+  function mdInsert(kind) {
+    Admin.insertMarkdown(kind);
+  }
   function addContact() {
     Admin.addContact();
   }
@@ -1674,6 +1892,9 @@ ${urls.map((u2) => `  <url>
     startNew,
     cancelForm,
     saveArticle,
+    setEditorMode,
+    refreshArticlePreview,
+    mdInsert,
     addContact,
     addSkill,
     previewBg,
@@ -1697,6 +1918,8 @@ ${urls.map((u2) => `  <url>
     document.querySelectorAll(".anav").forEach((el) => el.addEventListener("click", () => Admin.switchPanel(el.dataset.panel)));
     document.querySelectorAll(".fbtn").forEach((btn) => btn.addEventListener("click", () => filterByCat(btn.dataset.cat)));
     document.querySelectorAll(".tab-btn").forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+    const format = $("f-format");
+    if (format) format.addEventListener("change", () => Admin.refreshArticlePreview(true));
   });
   window.addEventListener("load", () => {
     const grid = $("posts-grid");

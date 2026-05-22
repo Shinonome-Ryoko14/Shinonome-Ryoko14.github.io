@@ -21,7 +21,7 @@ const Config = (() => {
     hero:     { line1:"Ryoko's", line2:'Personal Blog', subtitle:'记录技术、设计与生活的交汇处', badge:'Personal Blog · Code and Record', btn1:'开始阅读', btn2:'了解我', bgImage:'', bgOpacity:0.5, showCode:true },
     theme:    { preset:'geek', font:'inter', blue:'#4f9cf9', cyan:'#22d3ee' },
     social:   [],
-    effects:  { spotlight:false,spotlightInt:5,aurora:true,auroraInt:6,particles:false,particlesInt:4,stars:true,starsInt:4,trail:false,trailInt:5,snow:false,snowInt:3 },
+    effects:  { spotlight:false,spotlightInt:5,aurora:true,auroraInt:6,particles:false,particlesInt:4,stars:true,starsInt:4,trail:false,trailInt:5,snow:false,snowInt:3,glass:false,glassInt:5,glassBlur:18,glassOpacity:0.18,reveal:false,revealInt:5,revealDistance:18,revealStagger:70 },
     about:    { p1:'我相信，最好的文章应该像诗歌一样——精准、有力、留有余味。', p2:'这里是我与世界对话的地方。' },
     skills:   [{label:'前端开发',pct:92},{label:'UI/UX 设计',pct:84},{label:'内容创作',pct:88},{label:'系统架构',pct:76}],
     footer:   { copy:'© 2025 Ryoko. All rights reserved.', sub:'Built with ✦ and curiosity' },
@@ -226,7 +226,16 @@ const Theme = (() => {
 })();
 
 const FX = window.__RYOKO_FX__;
-const FX_DEFS = window.__RYOKO_FX_DEFS__ || [{key:'spotlight',icon:'🔦',name:'聚光灯',desc:'鼠标跟随光晕+点阵',ik:'spotlightInt'},{key:'aurora',icon:'🌌',name:'极光背景',desc:'Hero 流动彩色光球',ik:'auroraInt'},{key:'particles',icon:'✦',name:'浮动粒子',desc:'全页粒子+鼠标吸附(O001)',ik:'particlesInt'},{key:'stars',icon:'🌠',name:'星尘背景',desc:'细密闪烁星点',ik:'starsInt'},{key:'trail',icon:'🌊',name:'鼠标拖尾',desc:'鼠标划过发光轨迹',ik:'trailInt'},{key:'snow',icon:'❄️',name:'飘落雪花',desc:'轻柔飘落粒子',ik:'snowInt'}];
+const FX_DEFS = window.__RYOKO_FX_DEFS__ || [
+  {key:'spotlight',icon:'🔦',name:'聚光灯',desc:'鼠标跟随光晕+点阵',ik:'spotlightInt'},
+  {key:'aurora',icon:'🌌',name:'极光背景',desc:'Hero 流动彩色光球',ik:'auroraInt'},
+  {key:'particles',icon:'✦',name:'浮动粒子',desc:'全页粒子+鼠标吸附(O001)',ik:'particlesInt'},
+  {key:'stars',icon:'🌠',name:'星尘背景',desc:'细密闪烁星点',ik:'starsInt'},
+  {key:'trail',icon:'🌊',name:'鼠标拖尾',desc:'鼠标划过发光轨迹',ik:'trailInt'},
+  {key:'snow',icon:'❄️',name:'飘落雪花',desc:'轻柔飘落粒子',ik:'snowInt'},
+  {key:'glass',icon:'🫧',name:'磨砂玻璃',desc:'为卡片和侧栏启用玻璃模糊层',ik:'glassInt',params:[{key:'glassBlur',label:'模糊强度',type:'range',min:4,max:32,step:1},{key:'glassOpacity',label:'透明度',type:'range',min:0.08,max:0.45,step:0.01}]},
+  {key:'reveal',icon:'✍️',name:'手写显现',desc:'标题与卡片以轻量笔触式动效出现',ik:'revealInt',params:[{key:'revealDistance',label:'位移距离',type:'range',min:4,max:48,step:1},{key:'revealStagger',label:'错峰时长',type:'range',min:20,max:220,step:10}]}
+];
 
 /* ── MD / TOC / SEO / Tools ── */
 const MD = (() => {
@@ -241,7 +250,17 @@ const MD = (() => {
     }
     return `<pre><code>${text.replace(/</g,'&lt;')}</code></pre>`;
   };
-  return {render};
+  const enhance = container => {
+    if(!container) return;
+    if(window.hljs)container.querySelectorAll('pre code').forEach(b=>{try{hljs.highlightElement(b);}catch{}});
+    if(window.renderMathInElement){try{renderMathInElement(container,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});}catch{}}
+  };
+  const renderInto = (container, text, format) => {
+    if(!container) return;
+    container.innerHTML = render(text || '', format || 'markdown');
+    enhance(container);
+  };
+  return {render, enhance, renderInto};
 })();
 
 const TOC = (() => {
@@ -422,9 +441,8 @@ const Render = (() => {
     $('modal-title').textContent=post.title;
 
     const html=MD.render(post.content||'',post.format||'markdown');
-    const mt=$('modal-text');if(mt)mt.innerHTML=html;
-    if(mt&&window.hljs)mt.querySelectorAll('pre code').forEach(b=>{try{hljs.highlightElement(b);}catch{}});
-    if(mt&&window.renderMathInElement){try{renderMathInElement(mt,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});}catch{}}
+    const mt=$('modal-text');
+    if(mt)MD.renderInto(mt, post.content||'', post.format||'markdown');
     if(mt)TOC.build(mt);
     $('modal-tags').innerHTML=(post.tags||[]).map(t=>`<span class="modal-tag">${t}</span>`).join('');
     $('post-modal').classList.add('open');
@@ -472,6 +490,71 @@ const Render = (() => {
 const Admin = (() => {
   const $=id=>document.getElementById(id);
   let editId=null;
+  let editorMode='split';
+  let previewTimer=null;
+
+  const updateEditorModeUi=()=>{
+    const shell=$('editor-shell');
+    if(shell)shell.dataset.mode=editorMode;
+    document.querySelectorAll('[data-editor-mode]').forEach(btn=>btn.classList.toggle('active',btn.dataset.editorMode===editorMode));
+  };
+  const setEditorMode=mode=>{editorMode=mode||'split';updateEditorModeUi();refreshArticlePreview(true);};
+  const updateEditorFormatBadge=()=>{
+    const badge=$('editor-format-badge');
+    if(badge)badge.textContent=($('f-format')?.value||'markdown').toLowerCase();
+  };
+  const refreshArticlePreview=(immediate=false)=>{
+    const run=()=>{
+      updateEditorFormatBadge();
+      const preview=$('article-preview');
+      if(!preview)return;
+      const content=$('f-content')?.value||'';
+      const format=$('f-format')?.value||'markdown';
+      if(!content.trim()){
+        preview.innerHTML='<div class="editor-empty">预览将在这里显示</div>';
+        return;
+      }
+      MD.renderInto(preview, content, format);
+    };
+    if(previewTimer){clearTimeout(previewTimer);previewTimer=null;}
+    if(immediate){run();return;}
+    previewTimer=setTimeout(run,180);
+  };
+  const insertAround=(before,after='',fallback='')=>{
+    const input=$('f-content');
+    if(!input)return;
+    const start=input.selectionStart??0;
+    const end=input.selectionEnd??0;
+    const selected=input.value.slice(start,end) || fallback;
+    input.setRangeText(`${before}${selected}${after}`,start,end,'end');
+    input.focus();
+    refreshArticlePreview();
+  };
+  const insertBlock=(text)=>{
+    const input=$('f-content');
+    if(!input)return;
+    const start=input.selectionStart??0;
+    input.setRangeText(text,start,start,'end');
+    input.focus();
+    refreshArticlePreview();
+  };
+  const insertMarkdown=(kind)=>{
+    if(kind==='heading') return insertAround('## ','','小节标题');
+    if(kind==='bold') return insertAround('**','**','重点');
+    if(kind==='italic') return insertAround('*','*','强调');
+    if(kind==='code') return insertBlock('\n```ts\nconst message = "hello";\n```\n');
+    if(kind==='inlineMath') return insertAround('$','$','a^2+b^2=c^2');
+    if(kind==='blockMath') return insertBlock('\n$$\n\\int_0^1 x^2 \\, dx\n$$\n');
+    if(kind==='image') return insertBlock('\n![图片描述](https://example.com/image.png)\n');
+  };
+  const fxParamLabel=(value,step)=>{
+    const decimals=String(step||'').includes('.') ? String(step).split('.')[1].length : 0;
+    return Number(value).toFixed(decimals).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1');
+  };
+  const renderFxParams=(fxDef, fx)=>{
+    if(!fxDef.params?.length) return '<div class="fx-note">当前效果支持即时开关与强度调节。</div>';
+    return `<div class="fx-stack">${fxDef.params.map(param=>`<div class="fx-param"><div class="fx-param-top"><span>${param.label}</span><span class="fx-param-value" id="fx-val-${param.key}">${fxParamLabel(fx[param.key] ?? param.min ?? 0,param.step)}</span></div><input type="range" class="fx-r" id="fx-param-${param.key}" min="${param.min}" max="${param.max}" step="${param.step||1}" value="${fx[param.key] ?? param.min ?? 0}" oninput="Admin.liveFxParam('${param.key}',this.value,'${param.step||1}')"></div>`).join('')}</div>`;
+  };
 
   const showLogin=()=>{ $('admin-login').style.display='flex'; $('admin-app').style.display='none'; updateAdminRoutePreview(); };
   const showApp=()=>{ $('admin-login').style.display='none'; $('admin-app').style.display='flex'; };
@@ -559,7 +642,7 @@ const Admin = (() => {
     ['f-title','f-excerpt','f-tags','f-content'].forEach(id=>{const e=$(id);if(e)e.value='';});
     $('f-cat').value='tech';$('f-date').value=new Date().toISOString().slice(0,10);
     $('f-format').value='markdown';$('f-cover').value='cv1';$('f-glyph').value='✦';$('f-featured').checked=false;
-    $('art-form').style.display='block';$('admin-main').scrollTop=0;
+    $('art-form').style.display='block';$('admin-main').scrollTop=0;setEditorMode('split');refreshArticlePreview(true);
   };
   const editArt=id=>{
     const p=Posts.byId(id);if(!p)return;editId=id;
@@ -568,7 +651,7 @@ const Admin = (() => {
     $('f-excerpt').value=p.excerpt||'';$('f-tags').value=(p.tags||[]).join(',');$('f-content').value=p.content||'';
     $('f-format').value=p.format||'markdown';$('f-cover').value=p.cover?.style||'cv1';
     $('f-glyph').value=p.cover?.glyph||'✦';$('f-featured').checked=!!p.featured;
-    $('art-form').style.display='block';$('admin-main').scrollTop=0;
+    $('art-form').style.display='block';$('admin-main').scrollTop=0;setEditorMode('split');refreshArticlePreview(true);
   };
   const delArt=id=>{if(!confirm('确认删除？'))return;Posts.remove(id);loadArticles();Render.renderPosts(Posts.all());toast('🗑 文章已删除');};
   const saveArticle=()=>{
@@ -599,11 +682,12 @@ const Admin = (() => {
 
   const loadFxForm=()=>{
     const fx=Config.get('effects')||{};
-    $('fx-grid').innerHTML=FX_DEFS.map(f=>`<div class="fx-card"><div class="fx-head"><div><div class="fx-name">${f.icon} ${f.name}</div><div class="fx-desc">${f.desc}</div></div><label class="tgl-label" style="flex-shrink:0"><input type="checkbox" class="tgl-cb" id="fx-${f.key}" ${fx[f.key]?'checked':''} onchange="Admin.liveFx('${f.key}',this.checked)"></label></div><div class="fx-rl">强度</div><input type="range" class="fx-r" id="fx-int-${f.key}" min="1" max="10" value="${fx[f.ik]||5}" oninput="Admin.liveFxInt('${f.ik}',+this.value)"></div>`).join('');
+    $('fx-grid').innerHTML=FX_DEFS.map(f=>`<div class="fx-card"><div class="fx-head"><div><div class="fx-name">${f.icon} ${f.name}</div><div class="fx-desc">${f.desc}</div></div><label class="tgl-label" style="flex-shrink:0"><input type="checkbox" class="tgl-cb" id="fx-${f.key}" ${fx[f.key]?'checked':''} onchange="Admin.liveFx('${f.key}',this.checked)"></label></div><div class="fx-rl">强度</div><input type="range" class="fx-r" id="fx-int-${f.key}" min="1" max="10" value="${fx[f.ik]||5}" oninput="Admin.liveFxInt('${f.ik}',+this.value)">${renderFxParams(f, fx)}</div>`).join('');
   };
   const liveFx=async(k,on)=>{await Config.save('effects.'+k,on);FX.toggle(k,on,+($('fx-int-'+k)?.value||5));};
-  const liveFxInt=async(ik,v)=>{await Config.save('effects.'+ik,v);};
-  const saveEffects=async()=>{const fx={};FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);});await Config.saveSection('effects',fx);FX.applyAll(fx);toast('✅ 特效已保存 — 关闭后台可在博客看到效果');};
+  const liveFxInt=async(ik,v)=>{await Config.save('effects.'+ik,v);FX.applyAll(Config.get('effects')||{});};
+  const liveFxParam=async(key,v,step='1')=>{const num=Number(v);const value=String(step).includes('.')?num:num;const valEl=$('fx-val-'+key);if(valEl)valEl.textContent=fxParamLabel(value,step);await Config.save('effects.'+key,value);FX.applyAll(Config.get('effects')||{});};
+  const saveEffects=async()=>{const fx={...(Config.get('effects')||{})};FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);(f.params||[]).forEach(param=>{fx[param.key]=String(param.step||1).includes('.')?Number($('fx-param-'+param.key)?.value||0):+($('fx-param-'+param.key)?.value||0);});});await Config.saveSection('effects',fx);FX.applyAll(fx);toast('✅ 特效已保存 — 关闭后台可在博客看到效果');};
 
   const CI={Email:'✉️',GitHub:'🐙',Twitter:'🐦',Instagram:'📷',Weibo:'🌐',WeChat:'💬',LinkedIn:'💼',YouTube:'▶️',Bilibili:'📺',其他:'🔗'};
   let contacts=[];
@@ -694,8 +778,9 @@ const Admin = (() => {
   return {
     doLogin, open, openIfRouteMatches, exit, switchPanel,
     startNew, editArt, delArt, saveArticle, cancelForm,
+    setEditorMode, refreshArticlePreview, insertMarkdown,
     loadHero, previewBg, saveHero,
-    loadFxForm, liveFx, liveFxInt, saveEffects,
+    loadFxForm, liveFx, liveFxInt, liveFxParam, saveEffects,
     addContact, setC, rmC, saveContact,
     loadProfile, setSk, rmSk, addSkill, saveSkills, saveProfile,
     loadTheme, applyPreset, pickFont, previewColor, saveTheme, saveFont,
@@ -745,6 +830,9 @@ function clearStats()         { Admin.clearStats(); }
 function startNew()           { Admin.startNew(); }
 function cancelForm()         { Admin.cancelForm(); }
 function saveArticle()        { Admin.saveArticle(); }
+function setEditorMode(mode)  { Admin.setEditorMode(mode); }
+function refreshArticlePreview(){ Admin.refreshArticlePreview(); }
+function mdInsert(kind)       { Admin.insertMarkdown(kind); }
 function addContact()         { Admin.addContact(); }
 function addSkill()           { Admin.addSkill(); }
 function previewBg()          { Admin.previewBg(); }
@@ -761,7 +849,7 @@ Object.assign(window, {
   scrollTo2, filterByCat, changePage, doSearch, clearSearch, searchByTag,
   doSubscribe, logoClick, saveHero, saveEffects, saveContact, saveProfile,
   saveSkills, saveTheme, saveFont, clearStats, startNew, cancelForm,
-  saveArticle, addContact, addSkill, previewBg, downloadRSS,
+  saveArticle, setEditorMode, refreshArticlePreview, mdInsert, addContact, addSkill, previewBg, downloadRSS,
   downloadSitemap, downloadConfigJson, downloadPostsJson, switchTab, openPost
 });
 
@@ -777,6 +865,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.anav').forEach(el=>el.addEventListener('click',()=>Admin.switchPanel(el.dataset.panel)));
   document.querySelectorAll('.fbtn').forEach(btn=>btn.addEventListener('click',()=>filterByCat(btn.dataset.cat)));
   document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
+  const format=$('f-format');
+  if(format)format.addEventListener('change',()=>Admin.refreshArticlePreview(true));
 });
 
 window.addEventListener('load',()=>{

@@ -6,6 +6,8 @@ import { particlesPlugin } from './plugins/particles';
 import { starsPlugin } from './plugins/stars';
 import { trailPlugin } from './plugins/trail';
 import { snowPlugin } from './plugins/snow';
+import { glassPlugin } from './plugins/glass';
+import { revealPlugin } from './plugins/reveal';
 
 const plugins: Record<EffectKey, EffectPlugin> = {
   spotlight: spotlightPlugin,
@@ -13,8 +15,11 @@ const plugins: Record<EffectKey, EffectPlugin> = {
   particles: particlesPlugin,
   stars: starsPlugin,
   trail: trailPlugin,
-  snow: snowPlugin
+  snow: snowPlugin,
+  glass: glassPlugin,
+  reveal: revealPlugin
 };
+
 
 function createMouseState(): MouseState {
   const mouse: MouseState = { x: -9999, y: -9999, still: false };
@@ -86,7 +91,9 @@ const effectIntensityKey: Record<EffectKey, keyof EffectsConfig> = {
   particles: 'particlesInt',
   stars: 'starsInt',
   trail: 'trailInt',
-  snow: 'snowInt'
+  snow: 'snowInt',
+  glass: 'glassInt',
+  reveal: 'revealInt'
 };
 
 export function createFxApi(): FxPublicApi {
@@ -96,6 +103,19 @@ export function createFxApi(): FxPublicApi {
     (['particles', 'stars', 'trail', 'snow'] as EffectKey[]).forEach((name) => {
       plugins[name].stop(context);
     });
+  };
+
+  const applyDomEffects = (fx: Partial<EffectsConfig>) => {
+    document.documentElement.style.setProperty('--glass-blur', `${Number(fx.glassBlur ?? 18)}px`);
+    document.documentElement.style.setProperty('--glass-opacity', String(Number(fx.glassOpacity ?? 0.18)));
+    document.documentElement.style.setProperty('--reveal-distance', String(Number(fx.revealDistance ?? 18)));
+    document.documentElement.style.setProperty('--reveal-stagger', String(Number(fx.revealStagger ?? 70)));
+
+    if (fx.glass) plugins.glass.start(Number(fx.glassInt ?? 5), context);
+    else plugins.glass.stop(context);
+
+    if (fx.reveal) plugins.reveal.start(Number(fx.revealInt ?? 5), context);
+    else plugins.reveal.stop(context);
   };
 
   return {
@@ -111,6 +131,7 @@ export function createFxApi(): FxPublicApi {
       if (fx.stars) plugins.stars.start(Number(fx.starsInt ?? 4), context);
       if (fx.trail) plugins.trail.start(Number(fx.trailInt ?? 5), context);
       if (fx.snow) plugins.snow.start(Number(fx.snowInt ?? 3), context);
+      applyDomEffects(fx);
     },
     toggle(name: EffectKey, on: boolean, intensity?: number) {
       const plugin = plugins[name];

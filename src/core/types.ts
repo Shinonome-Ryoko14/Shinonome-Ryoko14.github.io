@@ -1,4 +1,4 @@
-export type EffectKey = 'spotlight' | 'aurora' | 'particles' | 'stars' | 'trail' | 'snow';
+export type EffectKey = 'spotlight' | 'aurora' | 'particles' | 'stars' | 'trail' | 'snow' | 'glass' | 'reveal';
 
 export type EffectIntensityKey =
   | 'spotlightInt'
@@ -6,7 +6,9 @@ export type EffectIntensityKey =
   | 'particlesInt'
   | 'starsInt'
   | 'trailInt'
-  | 'snowInt';
+  | 'snowInt'
+  | 'glassInt'
+  | 'revealInt';
 
 export interface EffectsConfig {
   spotlight: boolean;
@@ -21,6 +23,14 @@ export interface EffectsConfig {
   trailInt: number;
   snow: boolean;
   snowInt: number;
+  glass: boolean;
+  glassInt: number;
+  glassBlur: number;
+  glassOpacity: number;
+  reveal: boolean;
+  revealInt: number;
+  revealDistance: number;
+  revealStagger: number;
 }
 
 export interface SiteConfig {
@@ -37,12 +47,28 @@ export interface SiteConfig {
   comments?: Record<string, unknown>;
 }
 
+export interface FxControlOption {
+  label: string;
+  value: string | number;
+}
+
+export interface FxControlDef {
+  key: string;
+  label: string;
+  type: 'range' | 'color' | 'select' | 'toggle';
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: FxControlOption[];
+}
+
 export interface FxDefinition {
   key: EffectKey;
   icon: string;
   name: string;
   desc: string;
   ik: EffectIntensityKey;
+  params?: FxControlDef[];
 }
 
 export interface FxPublicApi {
