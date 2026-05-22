@@ -566,6 +566,16 @@ const Admin = (() => {
   const showLogin=()=>{ $('admin-login').style.display='flex'; $('admin-app').style.display='none'; updateAdminRoutePreview(); };
   const showApp=()=>{ $('admin-login').style.display='none'; $('admin-app').style.display='flex'; };
 
+  const loginErrText=err=>{
+    const code=err?.code||'';
+    if(code==='auth/unauthorized-domain') return '当前站点域名未加入 Firebase Authorized domains';
+    if(code==='auth/operation-not-allowed') return 'Firebase 未启用 Google 登录';
+    if(code==='auth/popup-blocked') return '浏览器拦截了 Google 登录弹窗';
+    if(code==='auth/popup-closed-by-user') return 'Google 登录窗口被关闭，未完成登录';
+    if(code==='auth/cancelled-popup-request') return '上一次 Google 登录弹窗尚未完成，请稍后重试';
+    if(code==='auth/network-request-failed') return '网络请求失败，无法连接 Firebase';
+    return `Google 登录失败${code ? `：${code}` : ''}`;
+  };
   const doLogin=async()=>{
     if(!Config.get('auth.adminEmail')){
       $('login-err').textContent='请先在配置中填写管理员 Google 邮箱';
@@ -576,8 +586,9 @@ const Admin = (() => {
       const fbUser = await Auth.login();
       if(Auth.isAdmin(fbUser?.email)){showApp();refresh();}
       else{await Auth.logout();$('login-err').textContent='当前 Google 账号不是管理员';$('login-err').style.display='block';}
-    } catch {
-      $('login-err').textContent='Google 登录未完成或被取消';
+    } catch (err) {
+      console.error('Google login failed:', err);
+      $('login-err').textContent=loginErrText(err);
       $('login-err').style.display='block';
     }
   };

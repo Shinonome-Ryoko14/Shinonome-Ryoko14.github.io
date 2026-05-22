@@ -1226,6 +1226,16 @@ ${urls.map((u2) => `  <url>
       $2("admin-login").style.display = "none";
       $2("admin-app").style.display = "flex";
     };
+    const loginErrText = (err) => {
+      const code = err?.code || "";
+      if (code === "auth/unauthorized-domain") return "\u5F53\u524D\u7AD9\u70B9\u57DF\u540D\u672A\u52A0\u5165 Firebase Authorized domains";
+      if (code === "auth/operation-not-allowed") return "Firebase \u672A\u542F\u7528 Google \u767B\u5F55";
+      if (code === "auth/popup-blocked") return "\u6D4F\u89C8\u5668\u62E6\u622A\u4E86 Google \u767B\u5F55\u5F39\u7A97";
+      if (code === "auth/popup-closed-by-user") return "Google \u767B\u5F55\u7A97\u53E3\u88AB\u5173\u95ED\uFF0C\u672A\u5B8C\u6210\u767B\u5F55";
+      if (code === "auth/cancelled-popup-request") return "\u4E0A\u4E00\u6B21 Google \u767B\u5F55\u5F39\u7A97\u5C1A\u672A\u5B8C\u6210\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5";
+      if (code === "auth/network-request-failed") return "\u7F51\u7EDC\u8BF7\u6C42\u5931\u8D25\uFF0C\u65E0\u6CD5\u8FDE\u63A5 Firebase";
+      return `Google \u767B\u5F55\u5931\u8D25${code ? `\uFF1A${code}` : ""}`;
+    };
     const doLogin2 = async () => {
       if (!Config.get("auth.adminEmail")) {
         $2("login-err").textContent = "\u8BF7\u5148\u5728\u914D\u7F6E\u4E2D\u586B\u5199\u7BA1\u7406\u5458 Google \u90AE\u7BB1";
@@ -1242,8 +1252,9 @@ ${urls.map((u2) => `  <url>
           $2("login-err").textContent = "\u5F53\u524D Google \u8D26\u53F7\u4E0D\u662F\u7BA1\u7406\u5458";
           $2("login-err").style.display = "block";
         }
-      } catch {
-        $2("login-err").textContent = "Google \u767B\u5F55\u672A\u5B8C\u6210\u6216\u88AB\u53D6\u6D88";
+      } catch (err) {
+        console.error("Google login failed:", err);
+        $2("login-err").textContent = loginErrText(err);
         $2("login-err").style.display = "block";
       }
     };
