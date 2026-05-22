@@ -59,11 +59,9 @@
     <div class="login-box">
       <div class="login-logo" id="admin-logo-el">Ryoko</div>
       <p class="login-sub">管理员登录</p>
-      <input id="admin-email-input" class="login-input" type="email" placeholder="管理员邮箱" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
-      <input id="pwd-input" class="login-input" type="password" placeholder="输入密码" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-      <div id="login-err" class="login-err" style="display:none">邮箱或密码错误，请重试</div>
-      <button class="btn-primary" style="width:100%;margin-top:4px" onclick="doLogin()">进入后台 →</button>
-      <p class="login-hint">使用 Firebase Authentication 中的管理员账号登录</p>
+      <div id="login-err" class="login-err" style="display:none">Google 登录失败，请重试</div>
+      <button class="btn-primary" style="width:100%;margin-top:4px" onclick="doLogin()">使用 Google 账号进入后台 →</button>
+      <p class="login-hint">使用 Firebase Authentication 中已授权的管理员 Google 邮箱登录</p>
       <p class="login-back" onclick="exitAdmin()">← 返回博客</p>
     </div>
   </div>
@@ -265,7 +263,7 @@
       <!-- PASSWORD -->
       <section class="apanel" id="panel-password">
         <h2 class="atitle">管理员访问</h2>
-        <p class="asub">后台仅支持隐藏参数 + Firebase 管理员账号登录</p>
+        <p class="asub">后台仅支持隐藏参数 + Firebase 管理员 Google 账号登录</p>
         <div class="acard" style="margin-bottom:14px;padding:14px 18px;background:rgba(79,156,249,0.07);border-color:rgba(79,156,249,0.3)"><span style="font-size:13px;color:var(--blue)">⚠️ 首页不再展示后台入口，请通过隐藏参数访问管理界面</span></div>
         <div class="acard" style="max-width:520px">
           <div class="fg" style="margin-bottom:10px"><label>隐藏参数</label><input id="admin-route" class="fi" placeholder="manage-ryoko"></div>

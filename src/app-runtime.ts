@@ -142,20 +142,31 @@ const Auth = (() => {
   const _listeners = [];
   const onChange = cb => _listeners.push(cb);
   const _notify  = () => _listeners.forEach(cb => cb(_user));
+  const syncUser = fbUser => {
+    _user = fbUser ? { uid:fbUser.uid, email:fbUser.email, displayName:fbUser.displayName||'管理员' } : null;
+    _notify();
+    return _user;
+  };
+  const normalizeEmail = value => (value || '').trim().toLowerCase();
 
   const init = () => {
     if (!FB.isReady()) return;
-    FB.auth().onAuthStateChanged(fbUser => {
-      _user = fbUser ? { uid:fbUser.uid, email:fbUser.email, displayName:fbUser.displayName||'管理员' } : null;
-      _notify();
-    });
+    FB.auth().onAuthStateChanged(syncUser);
   };
 
-  const login = (email, pwd) => FB.auth().signInWithEmailAndPassword(email, pwd);
+  const login = async () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt:'select_account' });
+    const result = await FB.auth().signInWithPopup(provider);
+    return syncUser(result.user);
+  };
   const logout  = () => FB.auth().signOut();
   const user    = () => _user;
   const uid     = () => _user?.uid;
-  const isAdmin = () => _user?.email && _user.email === Config.get('auth.adminEmail');
+  const isAdmin = (email=_user?.email) => {
+    const adminEmail = normalizeEmail(Config.get('auth.adminEmail'));
+    return !!adminEmail && normalizeEmail(email) === adminEmail;
+  };
   const isLoggedIn = () => !!_user;
 
   return { init, onChange, login, logout, user, uid, isAdmin, isLoggedIn };
@@ -560,17 +571,18 @@ const Admin = (() => {
   const showApp=()=>{ $('admin-login').style.display='none'; $('admin-app').style.display='flex'; };
 
   const doLogin=async()=>{
-    const email=$('admin-email-input')?.value.trim()||Config.get('auth.adminEmail');
-    const pwd=$('pwd-input').value;
-    if(!email||!pwd)return;
-    try {
-      await Auth.login(email,pwd);
-      if(Auth.isAdmin()){showApp();refresh();}
-      else{await Auth.logout();$('login-err').textContent='不是管理员账号';$('login-err').style.display='block';}
-    } catch {
-      $('login-err').textContent='邮箱或密码错误';
+    if(!Config.get('auth.adminEmail')){
+      $('login-err').textContent='请先在配置中填写管理员 Google 邮箱';
       $('login-err').style.display='block';
-      $('pwd-input').value='';
+      return;
+    }
+    try {
+      const fbUser = await Auth.login();
+      if(Auth.isAdmin(fbUser?.email)){showApp();refresh();}
+      else{await Auth.logout();$('login-err').textContent='当前 Google 账号不是管理员';$('login-err').style.display='block';}
+    } catch {
+      $('login-err').textContent='Google 登录未完成或被取消';
+      $('login-err').style.display='block';
     }
   };
   const getAdminToken=()=> (Config.get('auth.adminPath') || 'manage-ryoko').trim().replace(/^[/?#]+/, '');
@@ -585,7 +597,13 @@ const Admin = (() => {
     else url.searchParams.delete('admin');
     history[visible?'pushState':'replaceState']({},'',`${url.pathname}${url.search}${url.hash}`);
   };
-  const open=(syncUrl=true)=>{showLogin();$('admin-overlay').classList.add('vis');$('pwd-input').value='';$('login-err').style.display='none';if(syncUrl)syncAdminAccessUrl(true);};
+  const open=(syncUrl=true)=>{
+    showLogin();
+    $('admin-overlay').classList.add('vis');
+    $('login-err').style.display='none';
+    if(Auth.isAdmin()) { showApp(); refresh(); }
+    if(syncUrl)syncAdminAccessUrl(true);
+  };
   const openIfRouteMatches=()=>{
     if(new URLSearchParams(location.search).get('admin')===getAdminToken()){ open(false); return true; }
     return false;

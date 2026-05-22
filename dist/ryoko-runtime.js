@@ -669,18 +669,29 @@
     const _listeners = [];
     const onChange = (cb) => _listeners.push(cb);
     const _notify = () => _listeners.forEach((cb) => cb(_user));
+    const syncUser = (fbUser) => {
+      _user = fbUser ? { uid: fbUser.uid, email: fbUser.email, displayName: fbUser.displayName || "\u7BA1\u7406\u5458" } : null;
+      _notify();
+      return _user;
+    };
+    const normalizeEmail = (value) => (value || "").trim().toLowerCase();
     const init = () => {
       if (!FB.isReady()) return;
-      FB.auth().onAuthStateChanged((fbUser) => {
-        _user = fbUser ? { uid: fbUser.uid, email: fbUser.email, displayName: fbUser.displayName || "\u7BA1\u7406\u5458" } : null;
-        _notify();
-      });
+      FB.auth().onAuthStateChanged(syncUser);
     };
-    const login = (email, pwd) => FB.auth().signInWithEmailAndPassword(email, pwd);
+    const login = async () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      const result = await FB.auth().signInWithPopup(provider);
+      return syncUser(result.user);
+    };
     const logout = () => FB.auth().signOut();
     const user = () => _user;
     const uid = () => _user?.uid;
-    const isAdmin = () => _user?.email && _user.email === Config.get("auth.adminEmail");
+    const isAdmin = (email = _user?.email) => {
+      const adminEmail = normalizeEmail(Config.get("auth.adminEmail"));
+      return !!adminEmail && normalizeEmail(email) === adminEmail;
+    };
     const isLoggedIn = () => !!_user;
     return { init, onChange, login, logout, user, uid, isAdmin, isLoggedIn };
   })();
@@ -1223,23 +1234,24 @@ ${urls.map((u2) => `  <url>
       $2("admin-app").style.display = "flex";
     };
     const doLogin2 = async () => {
-      const email = $2("admin-email-input")?.value.trim() || Config.get("auth.adminEmail");
-      const pwd = $2("pwd-input").value;
-      if (!email || !pwd) return;
+      if (!Config.get("auth.adminEmail")) {
+        $2("login-err").textContent = "\u8BF7\u5148\u5728\u914D\u7F6E\u4E2D\u586B\u5199\u7BA1\u7406\u5458 Google \u90AE\u7BB1";
+        $2("login-err").style.display = "block";
+        return;
+      }
       try {
-        await Auth.login(email, pwd);
-        if (Auth.isAdmin()) {
+        const fbUser = await Auth.login();
+        if (Auth.isAdmin(fbUser?.email)) {
           showApp();
           refresh();
         } else {
           await Auth.logout();
-          $2("login-err").textContent = "\u4E0D\u662F\u7BA1\u7406\u5458\u8D26\u53F7";
+          $2("login-err").textContent = "\u5F53\u524D Google \u8D26\u53F7\u4E0D\u662F\u7BA1\u7406\u5458";
           $2("login-err").style.display = "block";
         }
       } catch {
-        $2("login-err").textContent = "\u90AE\u7BB1\u6216\u5BC6\u7801\u9519\u8BEF";
+        $2("login-err").textContent = "Google \u767B\u5F55\u672A\u5B8C\u6210\u6216\u88AB\u53D6\u6D88";
         $2("login-err").style.display = "block";
-        $2("pwd-input").value = "";
       }
     };
     const getAdminToken = () => (Config.get("auth.adminPath") || "manage-ryoko").trim().replace(/^[/?#]+/, "");
@@ -1257,8 +1269,11 @@ ${urls.map((u2) => `  <url>
     const open = (syncUrl = true) => {
       showLogin();
       $2("admin-overlay").classList.add("vis");
-      $2("pwd-input").value = "";
       $2("login-err").style.display = "none";
+      if (Auth.isAdmin()) {
+        showApp();
+        refresh();
+      }
       if (syncUrl) syncAdminAccessUrl(true);
     };
     const openIfRouteMatches = () => {

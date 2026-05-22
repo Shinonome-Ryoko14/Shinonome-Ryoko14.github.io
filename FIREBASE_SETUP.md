@@ -10,7 +10,8 @@
 
 1. 左侧菜单 → Build → Authentication
 2. 点击「Get started」
-3. Sign-in method → Email/Password → 启用 → 保存
+3. Sign-in method → Google → 启用 → 保存
+4. 将你用于管理后台的 Google 账号邮箱填写到 `config.json` 的 `auth.adminEmail`
 
 ## 3. 启用 Firestore Database
 
