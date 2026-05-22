@@ -1,10 +1,9 @@
+// @ts-nocheck
+
 /**
- * RYOKO BLOG — app.js v9
- * Modules: Store | Config | Posts | Stats | FB | Auth
- *          Announce | Theme | FX | MD | TOC
- *          SEO | Tools | Render | Admin
+ * RYOKO BLOG — app runtime
+ * Compatibility port from app.js to TypeScript bundle.
  */
-'use strict';
 
 /* ── STORE ── */
 const Store = (() => {
@@ -14,12 +13,6 @@ const Store = (() => {
   const del = (k)   => { try { localStorage.removeItem(P+k); } catch {} };
   return { get, set, del };
 })();
-
-/* ── SHA-256 ── */
-const sha256 = async str => {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-};
 
 /* ── CONFIG ── */
 const Config = (() => {
@@ -76,7 +69,7 @@ const Config = (() => {
   return { load, hydrateRemote, persist, get, save, saveSection, all };
 })();
 
-/* ── POSTS (B001 FIX: always fetch posts.json) ── */
+/* ── POSTS ── */
 const Posts = (() => {
   let posts = [];
   const load = async () => {
@@ -116,9 +109,7 @@ const Stats = (() => {
   return { recordVisit, recordOpen, getVisits, getOpens, total, last7, clear };
 })();
 
-/* ════════════════════════════════════════════════
-   FIREBASE MODULE
-════════════════════════════════════════════════ */
+/* ── FIREBASE ── */
 const FB = (() => {
   let _app=null, _auth=null, _db=null;
   const isReady    = () => !!_app;
@@ -145,9 +136,7 @@ const FB = (() => {
   return { init, isReady, auth, db, col, docRef, TS, arrUnion, arrRemove, incr };
 })();
 
-/* ════════════════════════════════════════════════
-   AUTH MODULE  (F001)
-════════════════════════════════════════════════ */
+/* ── AUTH ── */
 const Auth = (() => {
   let _user = null;
   const _listeners = [];
@@ -172,9 +161,7 @@ const Auth = (() => {
   return { init, onChange, login, logout, user, uid, isAdmin, isLoggedIn };
 })();
 
-/* ════════════════════════════════════════════════
-   ANNOUNCEMENTS (F006)
-════════════════════════════════════════════════ */
+/* ── ANNOUNCEMENTS ── */
 const Announce = (() => {
   let _list = [];
   let _unsub = null;
@@ -238,139 +225,10 @@ const Theme = (() => {
   return { apply, toggle, initDark, PRESETS, FONTS };
 })();
 
-/* ════════════════════════════════════════════════
-   FX ENGINE  (B002 + O001 magnetic particles)
-════════════════════════════════════════════════ */
-const FX = (() => {
-  const loops = {};
-  let _spHandler = null;
-  let _trailHandler = null;
+const FX = window.__RYOKO_FX__;
+const FX_DEFS = window.__RYOKO_FX_DEFS__ || [{key:'spotlight',icon:'🔦',name:'聚光灯',desc:'鼠标跟随光晕+点阵',ik:'spotlightInt'},{key:'aurora',icon:'🌌',name:'极光背景',desc:'Hero 流动彩色光球',ik:'auroraInt'},{key:'particles',icon:'✦',name:'浮动粒子',desc:'全页粒子+鼠标吸附(O001)',ik:'particlesInt'},{key:'stars',icon:'🌠',name:'星尘背景',desc:'细密闪烁星点',ik:'starsInt'},{key:'trail',icon:'🌊',name:'鼠标拖尾',desc:'鼠标划过发光轨迹',ik:'trailInt'},{key:'snow',icon:'❄️',name:'飘落雪花',desc:'轻柔飘落粒子',ik:'snowInt'}];
 
-  /* Global mouse state for O001 */
-  let mouseX=-9999, mouseY=-9999, mouseStill=false, mouseStillTimer=null;
-  document.addEventListener('mousemove', e => {
-    mouseX=e.clientX; mouseY=e.clientY; mouseStill=false;
-    clearTimeout(mouseStillTimer);
-    mouseStillTimer = setTimeout(() => { mouseStill=true; }, 800);
-  });
-
-  const initSpotlight = () => {
-    if (_spHandler) return;
-    let cx=-9999,cy=-9999,tx=-9999,ty=-9999;
-    _spHandler = e => { tx=e.clientX; ty=e.clientY; };
-    document.addEventListener('mousemove', _spHandler);
-    const fr = () => {
-      cx+=(tx-cx)*.04; cy+=(ty-cy)*.04;
-      document.getElementById('spotlight')?.style.setProperty('--sx',cx+'px');
-      document.getElementById('spotlight')?.style.setProperty('--sy',cy+'px');
-      document.getElementById('dot-grid')?.style.setProperty('--sx',cx+'px');
-      document.getElementById('dot-grid')?.style.setProperty('--sy',cy+'px');
-      loops._sp = requestAnimationFrame(fr);
-    };
-    loops._sp = requestAnimationFrame(fr);
-  };
-  const stopSpotlight = () => {
-    cancelAnimationFrame(loops._sp);
-    if (_spHandler) { document.removeEventListener('mousemove',_spHandler); _spHandler=null; }
-    ['spotlight','dot-grid'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.setProperty('--sx','-9999px');e.style.setProperty('--sy','-9999px');}});
-  };
-
-  const makeCv = id => { const cv=document.getElementById(id); cv.style.display='block'; cv.width=innerWidth; cv.height=innerHeight; return cv; };
-  const stopFx = name => {
-    cancelAnimationFrame(loops[name]); delete loops[name];
-    if (name==='trail'&&_trailHandler){document.removeEventListener('mousemove',_trailHandler);_trailHandler=null;}
-    const cv=document.getElementById('cv-'+name); if(cv) cv.style.display='none';
-  };
-
-  /* O001: magnetic particles */
-  const startParticles = (int=5) => {
-    const cv=makeCv('cv-particles'),ctx=cv.getContext('2d');
-    const C=['79,156,249','34,211,238','249,115,22','244,114,182'];
-    const mk=()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*2+.5,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5,a:Math.random(),da:(Math.random()*.006+.002)*(Math.random()<.5?1:-1),c:C[Math.floor(Math.random()*C.length)]});
-    const pts=Array.from({length:Math.round(int*14)},mk);
-    const fr=()=>{
-      ctx.clearRect(0,0,cv.width,cv.height);
-      pts.forEach(p=>{
-        /* O001: magnetic attraction when mouse is still */
-        if (mouseStill && mouseX > -9999) {
-          const dx=mouseX-p.x, dy=mouseY-p.y;
-          const dist=Math.sqrt(dx*dx+dy*dy);
-          if (dist > 5 && dist < 300) {
-            const force = Math.min(0.4, 80/dist);
-            p.vx += dx/dist * force * 0.12;
-            p.vy += dy/dist * force * 0.12;
-          }
-          p.vx *= 0.94; p.vy *= 0.94;
-        }
-        p.x+=p.vx; p.y+=p.vy; p.a+=p.da;
-        if(p.a>1||p.a<0)p.da*=-1;
-        if(p.x<0)p.x=cv.width; if(p.x>cv.width)p.x=0;
-        if(p.y<0)p.y=cv.height; if(p.y>cv.height)p.y=0;
-        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-        ctx.fillStyle=`rgba(${p.c},${p.a*.65})`; ctx.fill();
-      });
-      for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
-        const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);
-        if(d<90){ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.strokeStyle=`rgba(79,156,249,${(1-d/90)*.1})`;ctx.lineWidth=.5;ctx.stroke();}
-      }
-      loops.particles=requestAnimationFrame(fr);
-    };
-    fr();
-  };
-
-  const startStars = (int=4) => {
-    const cv=makeCv('cv-stars'),ctx=cv.getContext('2d');
-    const stars=Array.from({length:Math.round(int*70)},()=>({x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*.9+.2,a:Math.random(),da:Math.random()*.004+.001*(Math.random()<.5?1:-1)}));
-    const fr=()=>{ctx.clearRect(0,0,cv.width,cv.height);stars.forEach(s=>{s.a+=s.da;if(s.a>1||s.a<.05)s.da*=-1;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(180,185,220,${s.a*.7})`;ctx.fill();});loops.stars=requestAnimationFrame(fr);};
-    fr();
-  };
-
-  const startTrail = (int=5) => {
-    const cv=makeCv('cv-trail'),ctx=cv.getContext('2d'); let pts=[];
-    if(_trailHandler){document.removeEventListener('mousemove',_trailHandler);_trailHandler=null;}
-    _trailHandler = e => pts.push({x:e.clientX,y:e.clientY,a:1});
-    document.addEventListener('mousemove',_trailHandler);
-    const max=Math.round(int*18);
-    const fr=()=>{
-      ctx.clearRect(0,0,cv.width,cv.height);
-      pts.forEach(p=>p.a-=.03); pts=pts.filter(p=>p.a>0);
-      if(pts.length>max)pts=pts.slice(-max);
-      for(let i=1;i<pts.length;i++){const p=pts[i],pp=pts[i-1];ctx.beginPath();ctx.moveTo(pp.x,pp.y);ctx.lineTo(p.x,p.y);ctx.strokeStyle=`rgba(79,156,249,${p.a*.55})`;ctx.lineWidth=2.5*p.a;ctx.lineCap='round';ctx.shadowBlur=6;ctx.shadowColor=`rgba(34,211,238,${p.a*.35})`;ctx.stroke();}
-      ctx.shadowBlur=0; loops.trail=requestAnimationFrame(fr);
-    };
-    fr();
-  };
-
-  const startSnow = (int=3) => {
-    const cv=makeCv('cv-snow'),ctx=cv.getContext('2d');
-    const mk=()=>({x:Math.random()*cv.width,y:Math.random()*-cv.height,r:Math.random()*2.5+.8,vy:Math.random()*.7+.3,vx:(Math.random()-.5)*.5,a:Math.random()*.5+.3,sw:Math.random()*Math.PI*2,ss:Math.random()*.015+.005});
-    const fl=Array.from({length:Math.round(int*30)},f=>{const o=mk();o.y=Math.random()*cv.height;return o;});
-    const fr=()=>{ctx.clearRect(0,0,cv.width,cv.height);fl.forEach(f=>{f.y+=f.vy;f.sw+=f.ss;f.x+=Math.sin(f.sw)*.7+f.vx;if(f.y>cv.height+10)Object.assign(f,mk());ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,210,255,${f.a})`;ctx.fill();});loops.snow=requestAnimationFrame(fr);};
-    fr();
-  };
-
-  /* B002 FIX: applyAll stops old loops first, then starts fresh */
-  const applyAll = fx => {
-    ['particles','stars','trail','snow'].forEach(n => stopFx(n));
-    if(fx.spotlight) initSpotlight(); else stopSpotlight();
-    const aw=document.getElementById('aurora-wrap');
-    if(aw) aw.style.opacity=fx.aurora?((fx.auroraInt||5)/10)*1.6:0;
-    if(fx.particles) startParticles(fx.particlesInt||4);
-    if(fx.stars)     startStars(fx.starsInt||4);
-    if(fx.trail)     startTrail(fx.trailInt||5);
-    if(fx.snow)      startSnow(fx.snowInt||3);
-  };
-
-  const toggle = (name,on,int) => {
-    if(name==='spotlight'){on?initSpotlight():stopSpotlight();return;}
-    if(name==='aurora'){const aw=document.getElementById('aurora-wrap');if(aw)aw.style.opacity=on?((int||5)/10)*1.6:0;return;}
-    if(on){if(loops[name])stopFx(name);({particles:startParticles,stars:startStars,trail:startTrail,snow:startSnow})[name]?.(int||5);}else stopFx(name);
-  };
-
-  return { applyAll, toggle };
-})();
-
-/* ── MD / TOC / SEO / Tools (unchanged from v8) ── */
+/* ── MD / TOC / SEO / Tools ── */
 const MD = (() => {
   const render = (text, format) => {
     if(!text) return '';
@@ -443,17 +301,14 @@ const Tools = (() => {
   };
 })();
 
-/* ════════════════════════════════════════════════
-   RENDER  (official blog + community + comments)
-════════════════════════════════════════════════ */
+/* ── RENDER ── */
 const Render = (() => {
   const $=id=>document.getElementById(id);
   const CAT={tech:'技术',design:'设计',life:'生活',think:'思考',other:'其他'};
   const fmt=d=>d?d.replace(/-/g,'.'):'';
   const PER=6;
-  let _currentTab='official'; // 'official' | 'community'
+  let _currentTab='official';
 
-  /* ── Apply config to all DOM targets ── */
   const applyConfig=cfg=>{
     const s=cfg.site,h=cfg.hero,f=cfg.footer;
     const tx=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
@@ -489,9 +344,6 @@ const Render = (() => {
     obs.observe(el);
   };
 
-  const renderUserNav=()=>{};
-
-  /* ── Announcement bar ── */
   const renderAnnouncements=list=>{
     const el=$('announce-bar');if(!el)return;
     const pinned=list.filter(a=>a.pinned);
@@ -507,7 +359,6 @@ const Render = (() => {
       <button class="announce-close" onclick="document.getElementById('announce-bar').style.display='none'">✕</button>`;
   };
 
-  /* ── Tab switching ── */
   const switchTab=tab=>{
     _currentTab=tab;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
@@ -515,7 +366,6 @@ const Render = (() => {
     if(og) og.style.display='block';
   };
 
-  /* ── Official posts ── */
   const renderPosts=(posts,cat='all',page=1)=>{
     const filtered=cat==='all'?posts:posts.filter(p=>p.cat===cat);
     const pages=Math.max(1,Math.ceil(filtered.length/PER));
@@ -525,7 +375,6 @@ const Render = (() => {
     else{grid.innerHTML=slice.map((p,i)=>officialCard(p,i===0&&page===1&&cat==='all'&&!!p.featured)).join('');}
     renderPagination(pages,page,cat,'official');
     renderSideStats(posts); renderCatList(posts,cat); renderTagCloud(posts);
-    /* O002: init 3D tilt after rendering */
     initCardTilt();
   };
 
@@ -548,7 +397,6 @@ const Render = (() => {
     el.innerHTML=Array.from({length:pages},(_,i)=>i+1).map(p=>`<button class="page-btn${p===cur?' active':''}" onclick="changePage(${p},'${cat}')">${p}</button>`).join('');
   };
 
-  /* ── Sidebar stats / cat / tags ── */
   const renderSideStats=posts=>{
     const el=$('mini-stats');if(!el)return;
     el.innerHTML=[['文章',posts.length+'篇'],['访问',Stats.total()+'次'],['分类',[...new Set(posts.map(p=>p.cat))].length+'类']].map(([l,v])=>`<div class="mini-stat-row"><span class="msl">${l}</span><span class="msv">${v}</span></div>`).join('');
@@ -563,7 +411,6 @@ const Render = (() => {
     el.innerHTML=[...new Set(posts.flatMap(p=>p.tags||[]))].map(t=>`<span class="tag-pill" onclick="filterByTag('${t}')">${t}</span>`).join('');
   };
 
-  /* ── Post modal ── */
   const openModal=(post)=>{
     const cv=(post.cover?.style||'cv1').replace('cover-','cv');
     const mc=$('modal-cover');if(mc)mc.className=`modal-cover ${cv}`;
@@ -590,15 +437,6 @@ const Render = (() => {
     const toc=$('modal-toc');if(toc)toc.style.display='none';
   };
 
-  /* ── Comment area ── */
-  const renderCommentArea=()=>{
-    const ca=$('comment-area');if(!ca)return;
-    ca.innerHTML='<div class="comment-section"><div class="cs-title">💬 评论</div><div style="color:var(--muted);font-size:13px">评论功能已移除</div></div>';
-  };
-
-  const renderCommentsList=()=>{};
-
-  /* ── Search ── */
   const renderSearch=(results,q)=>{
     const el=$('search-results');if(!el)return;
     if(!q){el.style.display='none';el.innerHTML='';return;}
@@ -607,7 +445,6 @@ const Render = (() => {
     el.innerHTML=results.slice(0,6).map(p=>`<div class="sri" onclick="openPost('${p.id}','official');clearSearch()"><div class="sri-t">${p.title}</div><div class="sri-m"><span class="post-cat cat-${p.cat}" style="padding:1px 6px">${CAT[p.cat]}</span> ${fmt(p.date)}</div></div>`).join('');
   };
 
-  /* ── O002: 3D card tilt ── */
   const initCardTilt=()=>{
     document.querySelectorAll('.post-card').forEach(card=>{
       if(card._tiltInit) return;
@@ -631,9 +468,7 @@ const Render = (() => {
            renderSearch, openModal, closeModal, initCardTilt };
 })();
 
-/* ════════════════════════════════════════════════
-   ADMIN  (extended with announcements + community moderation)
-════════════════════════════════════════════════ */
+/* ── ADMIN ── */
 const Admin = (() => {
   const $=id=>document.getElementById(id);
   let editId=null;
@@ -702,7 +537,6 @@ const Admin = (() => {
     if(loaders[name])loaders[name]();
   };
 
-  /* Dashboard */
   const loadDash=()=>{
     const posts=Posts.all(),cats=[...new Set(posts.map(p=>p.cat))].length;
     $('dash-stats').innerHTML=[['文章',posts.length,'篇'],['分类',cats,'类'],['标签',[...new Set(posts.flatMap(p=>p.tags||[]))].length,'个'],['访问',Stats.total(),'次']].map(([l,v,u])=>`<div class="stat-card"><div class="stat-val">${v}</div><div class="stat-label">${l} <span style="font-size:10px">${u}</span></div></div>`).join('');
@@ -715,7 +549,6 @@ const Admin = (() => {
     $('act-list').innerHTML=posts.slice(0,5).map(p=>`<div class="act-item"><div class="act-dot"></div>发布了《${p.title}》 · ${p.date}</div>`).join('')||'<div style="color:var(--muted);font-size:13px;padding:10px 0">暂无动态</div>';
   };
 
-  /* Articles */
   const loadArticles=()=>{
     const posts=Posts.all();$('art-count').textContent=`共 ${posts.length} 篇`;
     $('art-form').style.display='none';editId=null;
@@ -750,7 +583,6 @@ const Admin = (() => {
   };
   const cancelForm=()=>{$('art-form').style.display='none';editId=null;};
 
-  /* Hero */
   const loadHero=()=>{
     const h=Config.get('hero')||{};
     const sv=(id,v)=>{const e=$(id);if(e)e.value=v||'';};
@@ -765,8 +597,6 @@ const Admin = (() => {
     await Config.saveSection('hero',h);Render.applyConfig(Config.all());toast('✅ 主页设置已保存');
   };
 
-  /* Effects */
-  const FX_DEFS=[{key:'spotlight',icon:'🔦',name:'聚光灯',desc:'鼠标跟随光晕+点阵',ik:'spotlightInt'},{key:'aurora',icon:'🌌',name:'极光背景',desc:'Hero 流动彩色光球',ik:'auroraInt'},{key:'particles',icon:'✦',name:'浮动粒子',desc:'全页粒子+鼠标吸附(O001)',ik:'particlesInt'},{key:'stars',icon:'🌠',name:'星尘背景',desc:'细密闪烁星点',ik:'starsInt'},{key:'trail',icon:'🌊',name:'鼠标拖尾',desc:'鼠标划过发光轨迹',ik:'trailInt'},{key:'snow',icon:'❄️',name:'飘落雪花',desc:'轻柔飘落粒子',ik:'snowInt'}];
   const loadFxForm=()=>{
     const fx=Config.get('effects')||{};
     $('fx-grid').innerHTML=FX_DEFS.map(f=>`<div class="fx-card"><div class="fx-head"><div><div class="fx-name">${f.icon} ${f.name}</div><div class="fx-desc">${f.desc}</div></div><label class="tgl-label" style="flex-shrink:0"><input type="checkbox" class="tgl-cb" id="fx-${f.key}" ${fx[f.key]?'checked':''} onchange="Admin.liveFx('${f.key}',this.checked)"></label></div><div class="fx-rl">强度</div><input type="range" class="fx-r" id="fx-int-${f.key}" min="1" max="10" value="${fx[f.ik]||5}" oninput="Admin.liveFxInt('${f.ik}',+this.value)"></div>`).join('');
@@ -775,7 +605,6 @@ const Admin = (() => {
   const liveFxInt=async(ik,v)=>{await Config.save('effects.'+ik,v);};
   const saveEffects=async()=>{const fx={};FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);});await Config.saveSection('effects',fx);FX.applyAll(fx);toast('✅ 特效已保存 — 关闭后台可在博客看到效果');};
 
-  /* Contact */
   const CI={Email:'✉️',GitHub:'🐙',Twitter:'🐦',Instagram:'📷',Weibo:'🌐',WeChat:'💬',LinkedIn:'💼',YouTube:'▶️',Bilibili:'📺',其他:'🔗'};
   let contacts=[];
   const loadContact=()=>{
@@ -799,7 +628,6 @@ const Admin = (() => {
     Render.applyConfig(Config.all());Render.renderPosts(Posts.all());toast('✅ 联系方式已保存');
   };
 
-  /* Profile */
   let skills=[];
   const loadProfile=()=>{
     const s=Config.get('site')||{},f=Config.get('footer')||{};
@@ -819,7 +647,6 @@ const Admin = (() => {
     SEO.update(Config.all());Render.applyConfig(Config.all());toast('✅ 博主信息已保存');
   };
 
-  /* Theme */
   let pFont=null;
   const loadTheme=()=>{
     const t=Config.get('theme')||{};
@@ -833,7 +660,6 @@ const Admin = (() => {
   const saveTheme=async()=>{const t={...Config.get('theme'),blue:$('t-c1').value,cyan:$('t-c2').value};await Config.saveSection('theme',t);Theme.apply(t);Render.applyConfig(Config.all());toast('✅ 配色已保存');};
   const saveFont=async()=>{if(!pFont){toast('⚠️ 请先选择字体');return;}const t={...Config.get('theme'),font:pFont};await Config.saveSection('theme',t);Theme.apply(t);toast('✅ 字体已应用');};
 
-  /* Announcements (F006 admin side) */
   const loadAnnounce=()=>{
     if(!FB.isReady()){$('announce-panel-content').innerHTML='<div style="color:var(--muted);font-size:13px">需要配置 Firebase 才能使用公告功能</div>';return;}
     const list=Announce.all();
@@ -857,7 +683,6 @@ const Admin = (() => {
   };
   const delAnnounce=async id=>{if(!confirm('确认删除公告？'))return;try{await Announce.remove(id);loadAnnounce();toast('🗑 公告已删除');}catch(e){toast('⚠️ '+e.message);}};
 
-  /* Tools */
   const loadTools=()=>{
     const sd=$('stats-detail');
     if(sd){const v=Stats.getVisits(),o=Stats.getOpens(),posts=Posts.all();const tp=Object.entries(o).sort((a,b)=>b[1]-a[1])[0];sd.innerHTML=`<div>📅 今日：${v[new Date().toISOString().slice(0,10)]||0} 次</div><div>📊 总计：${Stats.total()} 次</div><div>🔥 最热：${tp?(posts.find(p=>p.id===tp[0])?.title||tp[0])+'('+tp[1]+'次)':'—'}</div><div>📝 文章：${posts.length} 篇</div>`;}
@@ -880,9 +705,6 @@ const Admin = (() => {
   };
 })();
 
-/* ════════════════════════════════════════════════
-   TOAST
-════════════════════════════════════════════════ */
 function toast(msg, ms=2800) {
   const el=document.getElementById('toast');
   if(!el)return;
@@ -890,18 +712,12 @@ function toast(msg, ms=2800) {
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),ms);
 }
 
-/* ════════════════════════════════════════════════
-   GLOBAL FUNCTIONS
-════════════════════════════════════════════════ */
 function $(id){return document.getElementById(id);}
 let curCat='all', curPage=1;
 
-/* Admin */
 function exitAdmin()     { Admin.exit(); }
 function doLogin()       { Admin.doLogin(); }
 function toggleTheme()   { Theme.toggle(); }
-
-/* Admin-only helpers */
 function doLogout() { Auth.logout().then(()=>toast('已退出登录')); }
 function closeModal()           { Render.closeModal(); }
 function closeModalBg(e)        { if(e.target.id==='post-modal') Render.closeModal(); }
@@ -917,10 +733,7 @@ function doSearch(q)      { clearTimeout(_st); _st=setTimeout(()=>Render.renderS
 function clearSearch()    { const si=$('search-input'),sr=$('search-results'); if(si)si.value=''; if(sr){sr.style.display='none';sr.innerHTML='';} }
 function searchByTag(t)   { const si=$('search-input'); if(si){si.value=t;doSearch(t);si.focus();} }
 function doSubscribe()    { const e=$('email-input')?.value; if(!e||!e.includes('@')){toast('⚠️ 请输入有效邮箱');return;} toast('✅ 订阅成功！感谢关注 ✦'); $('email-input').value=''; }
-function logoClick() {
-  Admin.goToAdminRoute();
-}
-window.Admin=Admin;
+function logoClick() { Admin.goToAdminRoute(); }
 function saveHero()           { Admin.saveHero(); }
 function saveEffects()        { Admin.saveEffects(); }
 function saveContact()        { Admin.saveContact(); }
@@ -939,8 +752,19 @@ function downloadRSS()        { Tools.downloadRSS(); }
 function downloadSitemap()    { Tools.downloadSitemap(); }
 function downloadConfigJson() { Tools.downloadConfigJson(); }
 function downloadPostsJson()  { Tools.downloadPostsJson(); }
+function switchTab(tab)       { Render.switchTab(tab); }
+function openPost(id)         { const p=Posts.byId(id); if(!p)return; Stats.recordOpen(id); Render.openModal(p); }
 
-/* Keyboard shortcuts */
+window.Admin=Admin;
+Object.assign(window, {
+  exitAdmin, doLogin, toggleTheme, doLogout, closeModal, closeModalBg,
+  scrollTo2, filterByCat, changePage, doSearch, clearSearch, searchByTag,
+  doSubscribe, logoClick, saveHero, saveEffects, saveContact, saveProfile,
+  saveSkills, saveTheme, saveFont, clearStats, startNew, cancelForm,
+  saveArticle, addContact, addSkill, previewBg, downloadRSS,
+  downloadSitemap, downloadConfigJson, downloadPostsJson, switchTab, openPost
+});
+
 document.addEventListener('click',e=>{ if(!e.target.closest('.search-wrap'))clearSearch(); });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
@@ -949,14 +773,12 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-/* DOMContentLoaded */
 document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.anav').forEach(el=>el.addEventListener('click',()=>Admin.switchPanel(el.dataset.panel)));
   document.querySelectorAll('.fbtn').forEach(btn=>btn.addEventListener('click',()=>filterByCat(btn.dataset.cat)));
   document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
 });
 
-/* B001 safety net */
 window.addEventListener('load',()=>{
   const grid=$('posts-grid');
   if(grid&&(!grid.children.length||grid.querySelector('[style*="暂无"]'))&&Posts.all().length>0){
@@ -964,15 +786,11 @@ window.addEventListener('load',()=>{
   }
 });
 
-/* ════════════════════════════════════════════════
-   INIT
-════════════════════════════════════════════════ */
 (async()=>{
   let cfg = await Config.load();
   const posts = await Posts.load();
   Theme.initDark();
 
-  /* Firebase init */
   const fbReady=FB.init(cfg.firebase);
   if(fbReady){
     Auth.init();
@@ -982,10 +800,7 @@ window.addEventListener('load',()=>{
   Theme.apply(cfg.theme||{});
   SEO.update(cfg);
   Render.applyConfig(cfg);
-
-  /* B002 FIX: apply effects immediately from config */
   FX.applyAll(cfg.effects||{});
-
   Render.renderPosts(posts);
   Stats.recordVisit();
   if(window.hljs)hljs.configure({ignoreUnescapedHTML:true});
@@ -1000,9 +815,7 @@ window.addEventListener('load',()=>{
   }
 
   Admin.openIfRouteMatches();
-
-  /* O002: 3D tilt init after first render */
   Render.initCardTilt();
 
-  console.log('%c✦ Ryoko Blog v9 loaded','color:#4f9cf9;font-weight:bold;font-size:14px');
+  console.log('%c✦ Ryoko Blog TS runtime loaded','color:#4f9cf9;font-weight:bold;font-size:14px');
 })();

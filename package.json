@@ -1,0 +1,14 @@
+{
+  "name": "ryoko-blog",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run typecheck && esbuild src/main.ts --bundle --format=iife --platform=browser --target=es2020 --outfile=dist/ryoko-runtime.js",
+    "typecheck": "tsc --noEmit",
+    "serve": "python3 -m http.server 4173"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.0",
+    "typescript": "^5.9.3"
+  }
+}
