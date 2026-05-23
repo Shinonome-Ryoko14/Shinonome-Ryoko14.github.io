@@ -19,6 +19,7 @@ const Store = (() => {
 
 /* ── CONFIG ── */
 const Config = (() => {
+  const CACHE_KEY = 'site_config_cache';
   const DEFAULTS = {
     site:     { title:'Ryoko', description:'个人博客', url:'', author:'Ryoko', avatar:'R', bio:'热爱技术与设计的独立创作者。', lang:'zh-CN', since:'2025' },
     hero:     { line1:"Ryoko's", line2:'Personal Blog', subtitle:'记录技术、设计与生活的交汇处', badge:'Personal Blog · Code and Record', btn1:'开始阅读', btn2:'了解我', bgImage:'', bgOpacity:0.5, showCode:true },
@@ -32,6 +33,7 @@ const Config = (() => {
     firebase: { apiKey:'', authDomain:'', projectId:'', storageBucket:'', messagingSenderId:'', appId:'' },
   };
   let cfg = {};
+  let lastSync = { local:false, remote:false, reason:'init' };
   const deep = (a, b) => {
     const o = {...a}; if (!b) return o;
     for (const k of Object.keys(b)) {
@@ -40,24 +42,45 @@ const Config = (() => {
     }
     return o;
   };
+  const cacheLocal = () => {
+    Store.set(CACHE_KEY, cfg);
+    lastSync = { local:true, remote:false, reason:'local-cache' };
+  };
   const load = async () => {
     let fileCfg = {};
+    const cachedCfg = Store.get(CACHE_KEY, {});
     try { const r = await fetch('./config.json?t='+Date.now()); if (r.ok) fileCfg = await r.json(); } catch {}
     cfg = deep(DEFAULTS, fileCfg);
+    cfg = deep(cfg, cachedCfg);
     return cfg;
   };
   const hydrateRemote = async () => {
     if (!FB.isReady()) return cfg;
     try {
       const snap = await FB.docRef('site_config', 'main').get();
-      if (snap.exists) cfg = deep(cfg, snap.data());
-    } catch {}
+      if (snap.exists) {
+        cfg = deep(cfg, snap.data());
+        Store.set(CACHE_KEY, cfg);
+        lastSync = { local:true, remote:true, reason:'remote-hydrate' };
+      }
+    } catch (err) {
+      console.warn('Config remote hydrate failed:', err);
+    }
     return cfg;
   };
   const persist = async () => {
-    if (!FB.isReady() || !Auth.isLoggedIn() || !Auth.isAdmin()) return false;
-    await FB.docRef('site_config', 'main').set({ ...cfg }, { merge: true });
-    return true;
+    cacheLocal();
+    if (!FB.isReady()) return { ...lastSync, reason:'firebase-not-ready' };
+    if (!Auth.isLoggedIn()) return { ...lastSync, reason:'not-logged-in' };
+    if (!Auth.isAdmin()) return { ...lastSync, reason:'not-admin' };
+    try {
+      await FB.docRef('site_config', 'main').set({ ...cfg }, { merge: true });
+      lastSync = { local:true, remote:true, reason:'ok' };
+    } catch (err) {
+      console.error('Config persist failed:', err);
+      lastSync = { local:true, remote:false, reason:err?.code || err?.message || 'remote-write-failed' };
+    }
+    return lastSync;
   };
   const get = path => { let v = cfg; for (const p of path.split('.')) v = v?.[p]; return v; };
   const save = (path, val) => {
@@ -69,7 +92,8 @@ const Config = (() => {
   };
   const saveSection = (sec, obj) => { cfg[sec] = obj; return persist(); };
   const all  = () => cfg;
-  return { load, hydrateRemote, persist, get, save, saveSection, all };
+  const status = () => lastSync;
+  return { load, hydrateRemote, persist, get, save, saveSection, all, status };
 })();
 
 /* ── POSTS ── */
@@ -626,10 +650,10 @@ const Admin = (() => {
     const input=$('admin-route');
     const raw=(input?.value || '').trim().replace(/^[/?#]+/, '');
     if(!raw){toast('⚠️ 请填写隐藏入口标识');return;}
-    await Config.saveSection('auth',{...Config.get('auth'),adminEmail:Config.get('auth.adminEmail'),adminPath:raw});
+    const sync = await Config.saveSection('auth',{...Config.get('auth'),adminEmail:Config.get('auth.adminEmail'),adminPath:raw});
     updateAdminRoutePreview();
     if($('admin-overlay')?.classList.contains('vis')) syncAdminAccessUrl(true);
-    toast('✅ 隐藏入口已保存');
+    toast(syncToastMessage('✅ 隐藏入口已保存', sync));
   };
   const goToAdminRoute=()=>{ open(); };
   const exit=async()=>{
@@ -712,7 +736,7 @@ const Admin = (() => {
   const previewBg=()=>{const url=$('h-bg')?.value,pv=$('bg-preview');if(!pv)return;if(url){pv.style.backgroundImage=`url('${url}')`;pv.textContent='';}else{pv.style.backgroundImage='';pv.textContent='暂无背景图';}};
   const saveHero=async()=>{
     const h={line1:$('h-line1').value.trim()||"Ryoko's",line2:$('h-line2').value.trim()||'Personal Blog',subtitle:$('h-sub').value.trim(),badge:$('h-badge').value.trim(),btn1:$('h-btn1').value.trim()||'开始阅读',btn2:$('h-btn2').value.trim()||'了解我',bgImage:$('h-bg').value.trim(),bgOpacity:+($('h-opacity').value),showCode:$('h-show-code').checked};
-    await Config.saveSection('hero',h);Render.applyConfig(Config.all());toast('✅ 主页设置已保存');
+    const sync = await Config.saveSection('hero',h);Render.applyConfig(Config.all());toast(syncToastMessage('✅ 主页设置已保存', sync));
   };
 
   const loadFxForm=()=>{
@@ -722,7 +746,7 @@ const Admin = (() => {
   const liveFx=async(k,on)=>{await Config.save('effects.'+k,on);FX.toggle(k,on,+($('fx-int-'+k)?.value||5));};
   const liveFxInt=async(ik,v)=>{await Config.save('effects.'+ik,v);FX.applyAll(Config.get('effects')||{});};
   const liveFxParam=async(key,v,step='1')=>{const num=Number(v);const value=String(step).includes('.')?num:num;const valEl=$('fx-val-'+key);if(valEl)valEl.textContent=fxParamLabel(value,step);await Config.save('effects.'+key,value);FX.applyAll(Config.get('effects')||{});};
-  const saveEffects=async()=>{const fx={...(Config.get('effects')||{})};FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);(f.params||[]).forEach(param=>{fx[param.key]=String(param.step||1).includes('.')?Number($('fx-param-'+param.key)?.value||0):+($('fx-param-'+param.key)?.value||0);});});await Config.saveSection('effects',fx);FX.applyAll(fx);toast('✅ 特效已保存 — 关闭后台可在博客看到效果');};
+  const saveEffects=async()=>{const fx={...(Config.get('effects')||{})};FX_DEFS.forEach(f=>{fx[f.key]=!!$('fx-'+f.key)?.checked;fx[f.ik]=+($('fx-int-'+f.key)?.value||5);(f.params||[]).forEach(param=>{fx[param.key]=String(param.step||1).includes('.')?Number($('fx-param-'+param.key)?.value||0):+($('fx-param-'+param.key)?.value||0);});});const sync = await Config.saveSection('effects',fx);FX.applyAll(fx);toast(syncToastMessage('✅ 特效已保存 — 关闭后台可在博客看到效果', sync));};
 
   const CI={Email:'✉️',GitHub:'🐙',Twitter:'🐦',Instagram:'📷',Weibo:'🌐',WeChat:'💬',LinkedIn:'💼',YouTube:'▶️',Bilibili:'📺',其他:'🔗'};
   let contacts=[];
@@ -739,12 +763,12 @@ const Admin = (() => {
   const addContact=()=>{contacts.push({type:'其他',label:'新链接',url:'https://',icon:'🔗'});renderCE();};
   const saveContact=async()=>{
     contacts.forEach(c=>{c.icon=CI[c.type]||'🔗';});
-    await Config.saveSection('social',contacts);
+    const syncSocial = await Config.saveSection('social',contacts);
     const p1val=$('about-p1')?.value||'',p2val=$('about-p2')?.value||'';
-    await Config.saveSection('about',{p1:p1val,p2:p2val});
+    const syncAbout = await Config.saveSection('about',{p1:p1val,p2:p2val});
     const bp1=document.getElementById('blog-about-p1'),bp2=document.getElementById('blog-about-p2');
     if(bp1)bp1.textContent=p1val;if(bp2)bp2.textContent=p2val;
-    Render.applyConfig(Config.all());Render.renderPosts(Posts.all());toast('✅ 联系方式已保存');
+    Render.applyConfig(Config.all());Render.renderPosts(Posts.all());toast(syncToastMessage('✅ 联系方式已保存', syncAbout?.remote ? syncAbout : syncSocial));
   };
 
   let skills=[];
@@ -759,11 +783,11 @@ const Admin = (() => {
   const setSk=(i,k,v)=>{if(skills[i])skills[i][k]=v;};
   const rmSk=i=>{skills.splice(i,1);renderSE();};
   const addSkill=()=>{skills.push({label:'新技能',pct:80});renderSE();};
-  const saveSkills=async()=>{await Config.saveSection('skills',skills);Render.renderSkills(skills);toast('✅ 技能条已保存');};
+  const saveSkills=async()=>{const sync = await Config.saveSection('skills',skills);Render.renderSkills(skills);toast(syncToastMessage('✅ 技能条已保存', sync));};
   const saveProfile=async()=>{
-    await Config.saveSection('site',{...Config.get('site'),avatar:$('p-av').value.trim()||'R',author:$('p-name').value.trim(),bio:$('p-bio').value.trim(),title:$('p-blog-name').value.trim()||'Ryoko',description:$('p-blog-sub').value.trim(),url:$('p-site-url').value.trim()});
-    await Config.saveSection('footer',{copy:$('p-footer-copy').value.trim(),sub:$('p-footer-sub').value.trim()});
-    SEO.update(Config.all());Render.applyConfig(Config.all());toast('✅ 博主信息已保存');
+    const syncSite = await Config.saveSection('site',{...Config.get('site'),avatar:$('p-av').value.trim()||'R',author:$('p-name').value.trim(),bio:$('p-bio').value.trim(),title:$('p-blog-name').value.trim()||'Ryoko',description:$('p-blog-sub').value.trim(),url:$('p-site-url').value.trim()});
+    const syncFooter = await Config.saveSection('footer',{copy:$('p-footer-copy').value.trim(),sub:$('p-footer-sub').value.trim()});
+    SEO.update(Config.all());Render.applyConfig(Config.all());toast(syncToastMessage('✅ 博主信息已保存', syncFooter?.remote ? syncFooter : syncSite));
   };
 
   let pFont=null;
@@ -776,8 +800,8 @@ const Admin = (() => {
   const applyPreset=(label,blue,cyan,el)=>{document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));el.classList.add('active');$('t-c1').value=blue;$('t-c2').value=cyan;previewColor('blue',blue);previewColor('cyan',cyan);Config.save('theme.preset',label);};
   const pickFont=(id,el)=>{pFont=id;document.querySelectorAll('.font-opt').forEach(f=>f.classList.remove('sel'));el.classList.add('sel');};
   const previewColor=(k,v)=>document.documentElement.style.setProperty('--'+k,v);
-  const saveTheme=async()=>{const t={...Config.get('theme'),blue:$('t-c1').value,cyan:$('t-c2').value};await Config.saveSection('theme',t);Theme.apply(t);Render.applyConfig(Config.all());toast('✅ 配色已保存');};
-  const saveFont=async()=>{if(!pFont){toast('⚠️ 请先选择字体');return;}const t={...Config.get('theme'),font:pFont};await Config.saveSection('theme',t);Theme.apply(t);toast('✅ 字体已应用');};
+  const saveTheme=async()=>{const t={...Config.get('theme'),blue:$('t-c1').value,cyan:$('t-c2').value};const sync = await Config.saveSection('theme',t);Theme.apply(t);Render.applyConfig(Config.all());toast(syncToastMessage('✅ 配色已保存', sync));};
+  const saveFont=async()=>{if(!pFont){toast('⚠️ 请先选择字体');return;}const t={...Config.get('theme'),font:pFont};const sync = await Config.saveSection('theme',t);Theme.apply(t);toast(syncToastMessage('✅ 字体已应用', sync));};
 
   const loadAnnounce=()=>{
     if(!FB.isReady()){$('announce-panel-content').innerHTML='<div style="color:var(--muted);font-size:13px">需要配置 Firebase 才能使用公告功能</div>';return;}
@@ -830,6 +854,16 @@ function toast(msg, ms=2800) {
   if(!el)return;
   el.textContent=msg; el.classList.add('show');
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+function syncToastMessage(base, sync){
+  if(!sync) return base;
+  if(sync.remote) return base;
+  if(sync.reason==='firebase-not-ready') return `${base}（仅当前浏览器保存：Firebase 未初始化）`;
+  if(sync.reason==='not-logged-in') return `${base}（仅当前浏览器保存：尚未登录）`;
+  if(sync.reason==='not-admin') return `${base}（仅当前浏览器保存：当前账号不是管理员）`;
+  if(String(sync.reason).includes('permission')) return `${base}（仅当前浏览器保存：Firestore 规则未放行 site_config）`;
+  return `${base}（仅当前浏览器保存：云端同步失败）`;
 }
 
 function $(id){return document.getElementById(id);}

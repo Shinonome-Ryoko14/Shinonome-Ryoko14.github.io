@@ -502,6 +502,7 @@
     return { get, set, del };
   })();
   var Config = /* @__PURE__ */ (() => {
+    const CACHE_KEY = "site_config_cache";
     const DEFAULTS = {
       site: { title: "Ryoko", description: "\u4E2A\u4EBA\u535A\u5BA2", url: "", author: "Ryoko", avatar: "R", bio: "\u70ED\u7231\u6280\u672F\u4E0E\u8BBE\u8BA1\u7684\u72EC\u7ACB\u521B\u4F5C\u8005\u3002", lang: "zh-CN", since: "2025" },
       hero: { line1: "Ryoko's", line2: "Personal Blog", subtitle: "\u8BB0\u5F55\u6280\u672F\u3001\u8BBE\u8BA1\u4E0E\u751F\u6D3B\u7684\u4EA4\u6C47\u5904", badge: "Personal Blog \xB7 Code and Record", btn1: "\u5F00\u59CB\u9605\u8BFB", btn2: "\u4E86\u89E3\u6211", bgImage: "", bgOpacity: 0.5, showCode: true },
@@ -515,6 +516,7 @@
       firebase: { apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" }
     };
     let cfg = {};
+    let lastSync = { local: false, remote: false, reason: "init" };
     const deep = (a, b) => {
       const o = { ...a };
       if (!b) return o;
@@ -524,29 +526,49 @@
       }
       return o;
     };
+    const cacheLocal = () => {
+      Store.set(CACHE_KEY, cfg);
+      lastSync = { local: true, remote: false, reason: "local-cache" };
+    };
     const load = async () => {
       let fileCfg = {};
+      const cachedCfg = Store.get(CACHE_KEY, {});
       try {
         const r = await fetch("./config.json?t=" + Date.now());
         if (r.ok) fileCfg = await r.json();
       } catch {
       }
       cfg = deep(DEFAULTS, fileCfg);
+      cfg = deep(cfg, cachedCfg);
       return cfg;
     };
     const hydrateRemote = async () => {
       if (!FB.isReady()) return cfg;
       try {
         const snap = await FB.docRef("site_config", "main").get();
-        if (snap.exists) cfg = deep(cfg, snap.data());
-      } catch {
+        if (snap.exists) {
+          cfg = deep(cfg, snap.data());
+          Store.set(CACHE_KEY, cfg);
+          lastSync = { local: true, remote: true, reason: "remote-hydrate" };
+        }
+      } catch (err) {
+        console.warn("Config remote hydrate failed:", err);
       }
       return cfg;
     };
     const persist = async () => {
-      if (!FB.isReady() || !Auth.isLoggedIn() || !Auth.isAdmin()) return false;
-      await FB.docRef("site_config", "main").set({ ...cfg }, { merge: true });
-      return true;
+      cacheLocal();
+      if (!FB.isReady()) return { ...lastSync, reason: "firebase-not-ready" };
+      if (!Auth.isLoggedIn()) return { ...lastSync, reason: "not-logged-in" };
+      if (!Auth.isAdmin()) return { ...lastSync, reason: "not-admin" };
+      try {
+        await FB.docRef("site_config", "main").set({ ...cfg }, { merge: true });
+        lastSync = { local: true, remote: true, reason: "ok" };
+      } catch (err) {
+        console.error("Config persist failed:", err);
+        lastSync = { local: true, remote: false, reason: err?.code || err?.message || "remote-write-failed" };
+      }
+      return lastSync;
     };
     const get = (path) => {
       let v = cfg;
@@ -568,7 +590,8 @@
       return persist();
     };
     const all = () => cfg;
-    return { load, hydrateRemote, persist, get, save, saveSection, all };
+    const status = () => lastSync;
+    return { load, hydrateRemote, persist, get, save, saveSection, all, status };
   })();
   var Posts = /* @__PURE__ */ (() => {
     let posts = [];
@@ -1301,10 +1324,10 @@ ${urls.map((u2) => `  <url>
         toast("\u26A0\uFE0F \u8BF7\u586B\u5199\u9690\u85CF\u5165\u53E3\u6807\u8BC6");
         return;
       }
-      await Config.saveSection("auth", { ...Config.get("auth"), adminEmail: Config.get("auth.adminEmail"), adminPath: raw });
+      const sync = await Config.saveSection("auth", { ...Config.get("auth"), adminEmail: Config.get("auth.adminEmail"), adminPath: raw });
       updateAdminRoutePreview();
       if ($2("admin-overlay")?.classList.contains("vis")) syncAdminAccessUrl(true);
-      toast("\u2705 \u9690\u85CF\u5165\u53E3\u5DF2\u4FDD\u5B58");
+      toast(syncToastMessage("\u2705 \u9690\u85CF\u5165\u53E3\u5DF2\u4FDD\u5B58", sync));
     };
     const goToAdminRoute = () => {
       open();
@@ -1471,9 +1494,9 @@ ${urls.map((u2) => `  <url>
     };
     const saveHero2 = async () => {
       const h = { line1: $2("h-line1").value.trim() || "Ryoko's", line2: $2("h-line2").value.trim() || "Personal Blog", subtitle: $2("h-sub").value.trim(), badge: $2("h-badge").value.trim(), btn1: $2("h-btn1").value.trim() || "\u5F00\u59CB\u9605\u8BFB", btn2: $2("h-btn2").value.trim() || "\u4E86\u89E3\u6211", bgImage: $2("h-bg").value.trim(), bgOpacity: +$2("h-opacity").value, showCode: $2("h-show-code").checked };
-      await Config.saveSection("hero", h);
+      const sync = await Config.saveSection("hero", h);
       Render.applyConfig(Config.all());
-      toast("\u2705 \u4E3B\u9875\u8BBE\u7F6E\u5DF2\u4FDD\u5B58");
+      toast(syncToastMessage("\u2705 \u4E3B\u9875\u8BBE\u7F6E\u5DF2\u4FDD\u5B58", sync));
     };
     const loadFxForm = () => {
       const fx = Config.get("effects") || {};
@@ -1504,9 +1527,9 @@ ${urls.map((u2) => `  <url>
           fx[param.key] = String(param.step || 1).includes(".") ? Number($2("fx-param-" + param.key)?.value || 0) : +($2("fx-param-" + param.key)?.value || 0);
         });
       });
-      await Config.saveSection("effects", fx);
+      const sync = await Config.saveSection("effects", fx);
       FX.applyAll(fx);
-      toast("\u2705 \u7279\u6548\u5DF2\u4FDD\u5B58 \u2014 \u5173\u95ED\u540E\u53F0\u53EF\u5728\u535A\u5BA2\u770B\u5230\u6548\u679C");
+      toast(syncToastMessage("\u2705 \u7279\u6548\u5DF2\u4FDD\u5B58 \u2014 \u5173\u95ED\u540E\u53F0\u53EF\u5728\u535A\u5BA2\u770B\u5230\u6548\u679C", sync));
     };
     const CI = { Email: "\u2709\uFE0F", GitHub: "\u{1F419}", Twitter: "\u{1F426}", Instagram: "\u{1F4F7}", Weibo: "\u{1F310}", WeChat: "\u{1F4AC}", LinkedIn: "\u{1F4BC}", YouTube: "\u25B6\uFE0F", Bilibili: "\u{1F4FA}", \u5176\u4ED6: "\u{1F517}" };
     let contacts = [];
@@ -1537,15 +1560,15 @@ ${urls.map((u2) => `  <url>
       contacts.forEach((c) => {
         c.icon = CI[c.type] || "\u{1F517}";
       });
-      await Config.saveSection("social", contacts);
+      const syncSocial = await Config.saveSection("social", contacts);
       const p1val = $2("about-p1")?.value || "", p2val = $2("about-p2")?.value || "";
-      await Config.saveSection("about", { p1: p1val, p2: p2val });
+      const syncAbout = await Config.saveSection("about", { p1: p1val, p2: p2val });
       const bp1 = document.getElementById("blog-about-p1"), bp2 = document.getElementById("blog-about-p2");
       if (bp1) bp1.textContent = p1val;
       if (bp2) bp2.textContent = p2val;
       Render.applyConfig(Config.all());
       Render.renderPosts(Posts.all());
-      toast("\u2705 \u8054\u7CFB\u65B9\u5F0F\u5DF2\u4FDD\u5B58");
+      toast(syncToastMessage("\u2705 \u8054\u7CFB\u65B9\u5F0F\u5DF2\u4FDD\u5B58", syncAbout?.remote ? syncAbout : syncSocial));
     };
     let skills = [];
     const loadProfile = () => {
@@ -1582,16 +1605,16 @@ ${urls.map((u2) => `  <url>
       renderSE();
     };
     const saveSkills2 = async () => {
-      await Config.saveSection("skills", skills);
+      const sync = await Config.saveSection("skills", skills);
       Render.renderSkills(skills);
-      toast("\u2705 \u6280\u80FD\u6761\u5DF2\u4FDD\u5B58");
+      toast(syncToastMessage("\u2705 \u6280\u80FD\u6761\u5DF2\u4FDD\u5B58", sync));
     };
     const saveProfile2 = async () => {
-      await Config.saveSection("site", { ...Config.get("site"), avatar: $2("p-av").value.trim() || "R", author: $2("p-name").value.trim(), bio: $2("p-bio").value.trim(), title: $2("p-blog-name").value.trim() || "Ryoko", description: $2("p-blog-sub").value.trim(), url: $2("p-site-url").value.trim() });
-      await Config.saveSection("footer", { copy: $2("p-footer-copy").value.trim(), sub: $2("p-footer-sub").value.trim() });
+      const syncSite = await Config.saveSection("site", { ...Config.get("site"), avatar: $2("p-av").value.trim() || "R", author: $2("p-name").value.trim(), bio: $2("p-bio").value.trim(), title: $2("p-blog-name").value.trim() || "Ryoko", description: $2("p-blog-sub").value.trim(), url: $2("p-site-url").value.trim() });
+      const syncFooter = await Config.saveSection("footer", { copy: $2("p-footer-copy").value.trim(), sub: $2("p-footer-sub").value.trim() });
       SEO.update(Config.all());
       Render.applyConfig(Config.all());
-      toast("\u2705 \u535A\u4E3B\u4FE1\u606F\u5DF2\u4FDD\u5B58");
+      toast(syncToastMessage("\u2705 \u535A\u4E3B\u4FE1\u606F\u5DF2\u4FDD\u5B58", syncFooter?.remote ? syncFooter : syncSite));
     };
     let pFont = null;
     const loadTheme = () => {
@@ -1618,10 +1641,10 @@ ${urls.map((u2) => `  <url>
     const previewColor = (k, v) => document.documentElement.style.setProperty("--" + k, v);
     const saveTheme2 = async () => {
       const t = { ...Config.get("theme"), blue: $2("t-c1").value, cyan: $2("t-c2").value };
-      await Config.saveSection("theme", t);
+      const sync = await Config.saveSection("theme", t);
       Theme.apply(t);
       Render.applyConfig(Config.all());
-      toast("\u2705 \u914D\u8272\u5DF2\u4FDD\u5B58");
+      toast(syncToastMessage("\u2705 \u914D\u8272\u5DF2\u4FDD\u5B58", sync));
     };
     const saveFont2 = async () => {
       if (!pFont) {
@@ -1629,9 +1652,9 @@ ${urls.map((u2) => `  <url>
         return;
       }
       const t = { ...Config.get("theme"), font: pFont };
-      await Config.saveSection("theme", t);
+      const sync = await Config.saveSection("theme", t);
       Theme.apply(t);
-      toast("\u2705 \u5B57\u4F53\u5DF2\u5E94\u7528");
+      toast(syncToastMessage("\u2705 \u5B57\u4F53\u5DF2\u5E94\u7528", sync));
     };
     const loadAnnounce = () => {
       if (!FB.isReady()) {
@@ -1753,6 +1776,15 @@ ${urls.map((u2) => `  <url>
     el.classList.add("show");
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove("show"), ms);
+  }
+  function syncToastMessage(base, sync) {
+    if (!sync) return base;
+    if (sync.remote) return base;
+    if (sync.reason === "firebase-not-ready") return `${base}\uFF08\u4EC5\u5F53\u524D\u6D4F\u89C8\u5668\u4FDD\u5B58\uFF1AFirebase \u672A\u521D\u59CB\u5316\uFF09`;
+    if (sync.reason === "not-logged-in") return `${base}\uFF08\u4EC5\u5F53\u524D\u6D4F\u89C8\u5668\u4FDD\u5B58\uFF1A\u5C1A\u672A\u767B\u5F55\uFF09`;
+    if (sync.reason === "not-admin") return `${base}\uFF08\u4EC5\u5F53\u524D\u6D4F\u89C8\u5668\u4FDD\u5B58\uFF1A\u5F53\u524D\u8D26\u53F7\u4E0D\u662F\u7BA1\u7406\u5458\uFF09`;
+    if (String(sync.reason).includes("permission")) return `${base}\uFF08\u4EC5\u5F53\u524D\u6D4F\u89C8\u5668\u4FDD\u5B58\uFF1AFirestore \u89C4\u5219\u672A\u653E\u884C site_config\uFF09`;
+    return `${base}\uFF08\u4EC5\u5F53\u524D\u6D4F\u89C8\u5668\u4FDD\u5B58\uFF1A\u4E91\u7AEF\u540C\u6B65\u5931\u8D25\uFF09`;
   }
   function $(id) {
     return document.getElementById(id);

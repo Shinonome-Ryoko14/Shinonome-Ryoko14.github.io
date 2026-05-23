@@ -28,6 +28,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'YOUR_ADMIN_EMAIL';
+    }
+
+    // 站点配置
+    match /site_config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // 用户资料
     match /users/{uid} {
       allow read: if true;
@@ -38,9 +49,9 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null;
       allow update: if request.auth.uid == resource.data.authorId
-                    || request.auth.token.email == 'YOUR_ADMIN_EMAIL';
+                    || isAdmin();
       allow delete: if request.auth.uid == resource.data.authorId
-                    || request.auth.token.email == 'YOUR_ADMIN_EMAIL';
+                    || isAdmin();
     }
     // 评论
     match /comments/{commentId} {
@@ -48,12 +59,12 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow update: if request.auth.uid == resource.data.authorId;
       allow delete: if request.auth.uid == resource.data.authorId
-                    || request.auth.token.email == 'YOUR_ADMIN_EMAIL';
+                    || isAdmin();
     }
     // 公告
     match /announcements/{announcementId} {
       allow read: if true;
-      allow write: if request.auth.token.email == 'YOUR_ADMIN_EMAIL';
+      allow write: if isAdmin();
     }
   }
 }
